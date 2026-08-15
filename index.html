@@ -2197,6 +2197,9 @@ setInterval(()=>{ renderBanners(); },1000);
 </script>
 
 
+
+
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style id="qc-whatsapp-style">
   #qc-wa-btn {
@@ -2207,81 +2210,170 @@ setInterval(()=>{ renderBanners(); },1000);
 </style>
 <script id="qc-whatsapp-share">
 (function(){
-  function getRecetaActual(){
-    // Intentar obtener receta desde el modal abierto
-    // Buscar en DOM el título de receta detalle - el que está en el dialog
-    const dialogs=[...document.querySelectorAll('div[role="dialog"]')];
-    let recetaData=null;
-    // Buscar en localStorage la receta que se está viendo? No tenemos ID directo, parseamos DOM
-    return dialogs;
-  }
-
-  function buildTextoRecetaParaWA(){
+  function buildDatosReceta(){
     const modal=document.querySelector('div[role="dialog"]');
     if(!modal) return null;
-    // Nombre - buscar primer div con font-extrabold grande
-    let nombreEl=null;
-    const candidates=[...modal.querySelectorAll('div')].filter(d=>d.className && d.className.includes('font-extrabold') && d.textContent.trim().length>2 && d.textContent.trim().length<80);
-    if(candidates.length) nombreEl=candidates[0];
-    else nombreEl=modal.querySelector('h2') || modal.querySelector('div.font-extrabold');
-    let nombre=nombreEl?nombreEl.textContent.trim().split('\n')[0].trim():'Receta';
 
-    // Ingredientes - buscar divs con flex justify-between que tengan 2 spans
+    // Nombre y emoji
+    let nombre='Receta';
+    let emoji='';
+    const firstDivs=[...modal.querySelectorAll('div')].filter(d=>d.className && d.className.includes('font-extrabold') && d.textContent.trim().length>2 && d.textContent.trim().length<80);
+    if(firstDivs.length) nombre=firstDivs[0].textContent.trim().split('\n')[0].trim();
+    // Emoji buscar en modal primer elemento con emoji pescado etc
+    const emojiEl=modal.querySelector('div.text-\[32px\], div.text-\[28px\]') || [...modal.querySelectorAll('div')].find(d=>/^[\uD800-\uDBFF]/.test(d.textContent.trim()));
+    if(emojiEl) { const t=emojiEl.textContent.trim().slice(0,4); if(t) emoji=t; }
+
+    // Tipo, grupo, temporada, momento
+    let metaText='';
+    const metaCandidates=[...modal.querySelectorAll('div')].filter(d=>d.textContent.includes('principal') || d.textContent.includes('pescado') || d.textContent.includes('todo_año'));
+    if(metaCandidates.length) metaText=metaCandidates[0].textContent.trim().replace(/\s+/g,' ');
+
+    // KCAL etc - buscar por texto KCAL, PROT...
+    let kcal='', prot='', grasa='', hc='';
+    const allText=modal.textContent;
+    // Buscar elementos que contienen KCAL
+    [...modal.querySelectorAll('div')].forEach(d=>{
+      const txt=d.textContent;
+      if(txt.includes('KCAL')) {
+        const val=d.querySelector('div:last-child, span:last-child') || d;
+        // el valor está en la misma caja
+        const m=txt.match(/KCAL\s*([\d]+)/i);
+        if(m) kcal=m[1];
+        else {
+          const inner=[...d.children];
+          if(inner.length>=2) kcal=inner[1].textContent.trim();
+        }
+      }
+    });
+    // Más robusto: buscar los 4 cuadros por su estructura
+    const boxes=[...modal.querySelectorAll('div.bg-white, div.bg-\[\#fef7ed\], div.rounded-xl')].filter(b=>b.textContent.includes('KCAL')||b.textContent.includes('PROT'));
+    // Simplificado: regex sobre todo el texto
+    const kcalMatch=allText.match(/KCAL\s*([0-9]+)/i);
+    if(kcalMatch) kcal=kcalMatch[1];
+    const protMatch=allText.match(/PROT\s*([0-9]+g?)/i);
+    if(protMatch) prot=protMatch[1];
+    const grasaMatch=allText.match(/GRASA\s*([0-9]+g?)/i);
+    if(grasaMatch) grasa=grasaMatch[1];
+    const hcMatch=allText.match(/\bHC\b\s*([0-9]+g?)/i);
+    if(hcMatch) hc=hcMatch[1];
+
+    // Tiempo - buscar si existe
+    let tiempo='';
+    const tiempoEl=[...modal.querySelectorAll('div')].find(d=>d.textContent.includes('min') && (d.textContent.includes('Clásica')||d.textContent.includes('Expert')));
+    if(tiempoEl) tiempo=tiempoEl.textContent.trim();
+
+    // Ingredientes
     const allFlex=[...modal.querySelectorAll('div.flex')].filter(d=>d.className.includes('justify-between') && d.querySelectorAll('span').length>=2);
-    // Filtrar los que están en la sección ingredientes (tienen fondo claro o están antes de Pasos)
     let ingredientes=allFlex.slice(0,20).map(el=>{
       const spans=[...el.querySelectorAll('span')];
       const n=spans[0]?.textContent?.trim()||'';
       const c=spans[1]?.textContent?.trim()||'';
       if(!n) return null;
-      return `${n} - ${c}`;
+      return {n,c, txt:`${n} - ${c}`};
     }).filter(Boolean);
 
     // Pasos
     const pasosEls=[...modal.querySelectorAll('ol li')];
     let pasos=pasosEls.map((li,i)=> {
-      let t=li.textContent.trim();
-      // quitar número inicial si lo tiene duplicado
-      t=t.replace(/^\s*\d+\s*/, '').trim();
-      return `${i+1}. ${t}`;
+      let t=li.textContent.trim().replace(/^\s*\d+\s*/, '').trim();
+      return {num:i+1, txt:t};
     });
 
     let comensales=2;
     try{ comensales=window.qcGetComensales ? window.qcGetComensales() : 2; }catch(e){}
 
-    let texto=`*${nombre}* - ${comensales} comensales\n\n*Ingredientes:*\n${ingredientes.join('\n')}\n\n*Pasos:*\n${pasos.join('\n')}\n\n_Generado con QUE COMEMOS_`;
-    return {nombre, ingredientes, pasos, comensales, texto};
+    // Dieta icono - buscar info de equilibrio actual
+    let dietaInfo='';
+    try{
+      const eqRaw=localStorage.getItem('que-comemos-expert-v2');
+      if(eqRaw){
+        const j=JSON.parse(eqRaw);
+        const eq=j.equilibrio||{};
+        // simple: determinar icono por grupo de receta
+        if(metaText.includes('pescado')) dietaInfo='🐟 Pescado';
+        else if(metaText.includes('carne')) dietaInfo='🥩 Carne';
+        else if(metaText.includes('verdura')) dietaInfo='🥬 Verdura';
+        else if(metaText.includes('legumbre')) dietaInfo='🫘 Legumbre';
+        else dietaInfo='🌊 Med';
+      }
+    }catch(e){}
+
+    let textoWA=`*${emoji} ${nombre}* - ${comensales} comensales\n${metaText}\nKCAL ${kcal} | PROT ${prot} | GRASA ${grasa} | HC ${hc}\n\n*Ingredientes:*\n${ingredientes.map(i=>i.txt).join('\n')}\n\n*Pasos:*\n${pasos.map(p=>p.num+'. '+p.txt).join('\n')}\n\n_Generado con QUE COMEMOS_`;
+
+    return {nombre, emoji, metaText, kcal, prot, grasa, hc, tiempo, ingredientes, pasos, comensales, textoWA, dietaInfo};
   }
 
   function generarPDFBonito(){
-    const data=buildTextoRecetaParaWA();
+    const data=buildDatosReceta();
     if(!data) return null;
     const {jsPDF}=window.jspdf;
     const doc=new jsPDF({unit:'mm', format:'a4'});
     const pageW=doc.internal.pageSize.getWidth();
     const margin=15;
-    let y=15;
+    let y=14;
 
-    // Header
+    // Fondo header crema
     doc.setFillColor(254,247,237);
-    doc.rect(0,0,pageW,20,'F');
+    doc.rect(0,0,pageW,22,'F');
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(11);
+    doc.setTextColor(17,24,39);
+    doc.text('QUE COMEMOS', margin, 10);
+    doc.setFontSize(8);
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(100,100,100);
+    doc.text('Receta compartida', margin, 14);
+
+    // Dieta icono arriba derecha
+    if(data.dietaInfo){
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(10);
+      doc.setTextColor(17,24,39);
+      doc.text(data.dietaInfo, pageW-margin, 10, {align:'right'});
+    }
+
+    y=28;
+    // Nombre con emoji
     doc.setFont('helvetica','bold');
     doc.setFontSize(18);
     doc.setTextColor(17,24,39);
-    doc.text('QUE COMEMOS', margin, 12);
+    const title=`${data.emoji} ${data.nombre}`.trim();
+    doc.text(title, margin, y);
+    y+=7;
 
-    doc.setFontSize(14);
-    doc.setFont('helvetica','bold');
-    y=28;
-    doc.text(data.nombre, margin, y);
-    y+=8;
-    doc.setFontSize(11);
+    // Meta
     doc.setFont('helvetica','normal');
+    doc.setFontSize(9);
     doc.setTextColor(80,80,80);
-    doc.text(`${data.comensales} comensales`, margin, y);
-    y+=8;
+    if(data.metaText){
+      const metaLines=doc.splitTextToSize(data.metaText, pageW-margin*2);
+      metaLines.forEach(l=>{ doc.text(l, margin, y); y+=4; });
+      y+=2;
+    }
 
-    // Ingredientes
+    // KCAL box bonito
+    if(data.kcal || data.prot){
+      doc.setFillColor(255,255,255);
+      doc.setDrawColor(231,220,201);
+      doc.roundedRect(margin, y, pageW-margin*2, 14, 3,3,'FD');
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(10);
+      doc.setTextColor(17,24,39);
+      const line=`KCAL ${data.kcal||'-'}   |   PROT ${data.prot||'-'}   |   GRASA ${data.grasa||'-'}   |   HC ${data.hc||'-'}   |   ${data.comensales} pers`;
+      doc.text(line, margin+3, y+8);
+      y+=20;
+    }
+
+    // Tiempo si existe
+    if(data.tiempo){
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(9);
+      doc.setTextColor(80,80,80);
+      doc.text(data.tiempo.slice(0,120), margin, y);
+      y+=6;
+    }
+
+    // Ingredientes título
     doc.setFont('helvetica','bold');
     doc.setFontSize(12);
     doc.setTextColor(17,24,39);
@@ -2291,9 +2383,14 @@ setInterval(()=>{ renderBanners(); },1000);
     doc.setFontSize(10);
     data.ingredientes.forEach(ing=>{
       if(y>270){ doc.addPage(); y=15; }
-      // Cortar texto largo
-      const lines=doc.splitTextToSize(ing, pageW - margin*2);
-      lines.forEach(line=>{ doc.text(line, margin, y); y+=5; });
+      const left=ing.n;
+      const right=ing.c;
+      doc.setFont('helvetica','bold');
+      doc.text(left, margin, y);
+      doc.setFont('helvetica','normal');
+      const rightX=pageW-margin - doc.getTextWidth(right);
+      doc.text(right, rightX, y);
+      y+=5;
     });
     y+=4;
 
@@ -2301,20 +2398,32 @@ setInterval(()=>{ renderBanners(); },1000);
     if(y>240){ doc.addPage(); y=15; }
     doc.setFont('helvetica','bold');
     doc.setFontSize(12);
-    doc.text('Elaboración:', margin, y);
+    doc.text('Elaboracion:', margin, y);
     y+=6;
     doc.setFont('helvetica','normal');
     doc.setFontSize(10);
     data.pasos.forEach(p=>{
       if(y>270){ doc.addPage(); y=15; }
-      const lines=doc.splitTextToSize(p, pageW - margin*2);
-      lines.forEach(line=>{ doc.text(line, margin, y); y+=5; });
+      const numStr=`${p.num}. `;
+      doc.setFont('helvetica','bold');
+      doc.text(numStr, margin, y);
+      const txtX=margin+doc.getTextWidth(numStr);
+      const lines=doc.splitTextToSize(p.txt, pageW - txtX - margin);
+      doc.setFont('helvetica','normal');
+      lines.forEach((line, idx)=>{
+        if(idx>0){ y+=5; if(y>270){ doc.addPage(); y=15; } }
+        doc.text(line, txtX, y);
+      });
+      y+=6;
     });
 
-    y+=10;
+    y+=8;
+    doc.setDrawColor(231,220,201);
+    doc.line(margin, y, pageW-margin, y);
+    y+=6;
     doc.setFontSize(8);
     doc.setTextColor(150,150,150);
-    doc.text('Generado con QUE COMEMOS - quecomemos.local', margin, y);
+    doc.text('Generado con QUE COMEMOS - quecomemos.local | '+ new Date().toLocaleDateString('es-ES'), margin, y);
 
     return {doc, data};
   }
@@ -2322,7 +2431,6 @@ setInterval(()=>{ renderBanners(); },1000);
   function injectWAButton(){
     const modal=document.querySelector('div[role="dialog"]');
     if(!modal) return;
-    // Buscar contenedor de botones Editar/Borrar
     const gridBtns=modal.querySelector('div.grid.grid-cols-2.gap-2');
     if(!gridBtns) return;
     if(document.getElementById('qc-wa-btn')) return;
@@ -2330,46 +2438,39 @@ setInterval(()=>{ renderBanners(); },1000);
     const waBtn=document.createElement('button');
     waBtn.id='qc-wa-btn';
     waBtn.title='Compartir por WhatsApp en PDF';
-    waBtn.innerHTML='💬'; // WhatsApp icon simple
+    waBtn.innerHTML='💬';
     waBtn.onclick=()=>{
       try{
         const result=generarPDFBonito();
         if(!result){ alert('No se pudo generar receta'); return; }
         const {doc, data}=result;
-        // Guardar PDF
         const fileName=`${data.nombre.replace(/[^a-z0-9]/gi,'_')}_${data.comensales}pers.pdf`;
         doc.save(fileName);
-
-        // Compartir por WhatsApp con texto
-        const textoWA=encodeURIComponent(data.texto);
+        const textoWA=encodeURIComponent(data.textoWA);
         const waUrl=`https://wa.me/?text=${textoWA}`;
         window.open(waUrl, '_blank');
-
-        // Si navegador soporta Web Share con archivo
-        if(navigator.canShare && navigator.canShare({files: [new File([doc.output('blob')], fileName, {type:'application/pdf'})]})){
-          const file=new File([doc.output('blob')], fileName, {type:'application/pdf'});
-          navigator.share({title:data.nombre, text:data.texto, files:[file]}).catch(()=>{});
+        if(navigator.canShare){
+          try{
+            const file=new File([doc.output('blob')], fileName, {type:'application/pdf'});
+            if(navigator.canShare({files:[file]})){
+              navigator.share({title:data.nombre, text:data.textoWA, files:[file]}).catch(()=>{});
+            }
+          }catch(e){}
         }
       }catch(e){
         console.error(e);
         alert('Error generando PDF: '+e.message);
       }
     };
-
-    // Insertar como tercer botón en grid de 2 -> convertir a 3 columnas
     gridBtns.style.gridTemplateColumns='1fr 1fr 54px';
     gridBtns.appendChild(waBtn);
   }
 
-  // Observar apertura de modales
   const observer=new MutationObserver(()=>{
     const modal=document.querySelector('div[role="dialog"]');
-    if(modal){
-      setTimeout(injectWAButton, 200);
-    }
+    if(modal){ setTimeout(injectWAButton, 200); }
   });
   observer.observe(document.body, {childList:true, subtree:true});
-
   setInterval(injectWAButton, 800);
 })();
 </script>
