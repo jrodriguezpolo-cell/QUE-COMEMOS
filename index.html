@@ -2217,24 +2217,35 @@ setInterval(()=>{ renderBanners(); },1000);
   }
 
   function buildTextoRecetaParaWA(){
-    // Buscar modal de receta
     const modal=document.querySelector('div[role="dialog"]');
     if(!modal) return null;
-    const nombreEl=modal.querySelector('div.font-extrabold.text-\[18px\], div.font-extrabold.text-\[20px\], h2');
-    let nombre=nombreEl?nombreEl.textContent.trim():'Receta';
-    // Ingredientes
-    const ingEls=[...modal.querySelectorAll('div.flex.justify-between.bg-\[\#fef7ed\]')];
-    let ingredientes=ingEls.map(el=>{
+    // Nombre - buscar primer div con font-extrabold grande
+    let nombreEl=null;
+    const candidates=[...modal.querySelectorAll('div')].filter(d=>d.className && d.className.includes('font-extrabold') && d.textContent.trim().length>2 && d.textContent.trim().length<80);
+    if(candidates.length) nombreEl=candidates[0];
+    else nombreEl=modal.querySelector('h2') || modal.querySelector('div.font-extrabold');
+    let nombre=nombreEl?nombreEl.textContent.trim().split('\n')[0].trim():'Receta';
+
+    // Ingredientes - buscar divs con flex justify-between que tengan 2 spans
+    const allFlex=[...modal.querySelectorAll('div.flex')].filter(d=>d.className.includes('justify-between') && d.querySelectorAll('span').length>=2);
+    // Filtrar los que están en la sección ingredientes (tienen fondo claro o están antes de Pasos)
+    let ingredientes=allFlex.slice(0,20).map(el=>{
       const spans=[...el.querySelectorAll('span')];
-      const n=spans[0]?.textContent||'';
-      const c=spans[1]?.textContent||'';
+      const n=spans[0]?.textContent?.trim()||'';
+      const c=spans[1]?.textContent?.trim()||'';
+      if(!n) return null;
       return `${n} - ${c}`;
-    });
+    }).filter(Boolean);
+
     // Pasos
     const pasosEls=[...modal.querySelectorAll('ol li')];
-    let pasos=pasosEls.map((li,i)=> `${i+1}. ${li.textContent.replace(/^\d+/, '').trim()}`);
+    let pasos=pasosEls.map((li,i)=> {
+      let t=li.textContent.trim();
+      // quitar número inicial si lo tiene duplicado
+      t=t.replace(/^\s*\d+\s*/, '').trim();
+      return `${i+1}. ${t}`;
+    });
 
-    // Comensales
     let comensales=2;
     try{ comensales=window.qcGetComensales ? window.qcGetComensales() : 2; }catch(e){}
 
