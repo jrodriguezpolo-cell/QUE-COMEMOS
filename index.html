@@ -681,4 +681,201 @@ setInterval(()=>{ renderBanners(); },1000);
 })();
 </script>
 
+
+<style id="qc-nr-modal-style">
+  #qc-nr-fixed { display: none !important; } /* ocultamos barra vieja */
+  #qc-fila2 {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    flex-wrap: nowrap;
+  }
+  #qc-nr-btn {
+    height: 44px;
+    padding: 0 14px;
+    border-radius: 12px;
+    border: 1px solid #e7dcc9;
+    background: #ffffff;
+    color: #111827;
+    font-weight: 800;
+    font-size: 13px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  #qc-nr-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(17,24,39,.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  #qc-nr-modal.open { display: flex; }
+  #qc-nr-box {
+    background: #fef7ed;
+    border: 1px solid #e7dcc9;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 380px;
+    padding: 18px;
+    box-shadow: 0 16px 40px rgba(0,0,0,.25);
+  }
+  #qc-nr-box h3 { font-weight: 900; font-size: 16px; margin: 0 0 12px 0; }
+  .qc-nr-opt {
+    width: 100%;
+    height: 48px;
+    border-radius: 12px;
+    border: 1px solid #e7dcc9;
+    background: #fff;
+    font-weight: 800;
+    font-size: 14px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    text-align: left;
+    padding: 0 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .qc-nr-opt.active {
+    background: #111827;
+    color: #fffaf0;
+    border-color: #111827;
+  }
+</style>
+
+<div id="qc-nr-modal">
+  <div id="qc-nr-box">
+    <h3>🚫 No repetir</h3>
+    <p style="font-size:12px;opacity:.6;margin:0 0 12px 0">Evita repetir platos recientes</p>
+    <button class="qc-nr-opt" data-w="0"><span>Off</span><span id="qc-nr-check-0">○</span></button>
+    <button class="qc-nr-opt" data-w="7"><span>1 semana</span><span id="qc-nr-check-7">○</span></button>
+    <button class="qc-nr-opt" data-w="14"><span>2 semanas</span><span id="qc-nr-check-14">○</span></button>
+    <button class="qc-nr-opt" data-w="21"><span>3 semanas</span><span id="qc-nr-check-21">○</span></button>
+    <div id="qc-nr-modal-info" style="font-size:11px;opacity:.6;margin-top:8px"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button id="qc-nr-close" style="flex:1;padding:10px;border-radius:999px;background:#fff;color:#111827;border:1px solid #e7dcc9;font-weight:800">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const KEY_W='qc-no-repeat-weeks';
+  const getW=()=>+localStorage.getItem(KEY_W)||0;
+  const setW=v=>localStorage.setItem(KEY_W,v);
+  
+  function ensureFila2(){
+    const gen=[...document.querySelectorAll('button')].find(b=>/generar semana/i.test(b.textContent));
+    if(!gen) return null;
+    let gridParent=gen.closest('div');
+    for(let i=0;i<6;i++){
+      if(!gridParent) break;
+      if(gridParent.textContent.includes('Temporada') && gridParent.textContent.includes('Generar semana')) break;
+      gridParent=gridParent.parentElement;
+    }
+    if(!gridParent) return null;
+    
+    let fila2=document.getElementById('qc-fila2');
+    if(!fila2){
+      fila2=document.createElement('div');
+      fila2.id='qc-fila2';
+      gridParent.insertAdjacentElement('afterend', fila2);
+    }
+    return fila2;
+  }
+  
+  function createNrBtn(){
+    const fila2=ensureFila2();
+    if(!fila2) return false;
+    let btn=document.getElementById('qc-nr-btn');
+    if(!btn){
+      btn=document.createElement('button');
+      btn.id='qc-nr-btn';
+      fila2.appendChild(btn);
+    }
+    const w=getW();
+    const label = w==0?'Off': w==7?'1 sem': w==14?'2 sem':'3 sem';
+    btn.textContent = `🚫 No repetir: ${label}`;
+    
+    if(!btn._fixed){
+      btn._fixed=true;
+      btn.onclick=()=>{
+        const modal=document.getElementById('qc-nr-modal');
+        if(!modal) return;
+        // actualizar estado
+        modal.querySelectorAll('.qc-nr-opt').forEach(b=>{
+          const active = +b.dataset.w===getW();
+          b.classList.toggle('active', active);
+          const checkId='qc-nr-check-'+b.dataset.w;
+          const check=document.getElementById(checkId);
+          if(check) check.textContent=active?'●':'○';
+        });
+        const info=document.getElementById('qc-nr-modal-info');
+        if(info){
+          const w2=getW();
+          info.textContent = w2? `Filtrando <${w2}d · chivato activo` : 'Sin filtro · solo chivato';
+        }
+        modal.classList.add('open');
+      };
+    }
+    return true;
+  }
+  
+  function attachNrModal(){
+    const modal=document.getElementById('qc-nr-modal');
+    if(!modal) return;
+    modal.querySelectorAll('.qc-nr-opt').forEach(b=>{
+      if(b._fixed) return;
+      b._fixed=true;
+      b.onclick=()=>{
+        setW(b.dataset.w);
+        // actualizar boton
+        const btn=document.getElementById('qc-nr-btn');
+        if(btn){
+          const w=getW();
+          const label = w==0?'Off': w==7?'1 sem': w==14?'2 sem':'3 sem';
+          btn.textContent = `🚫 No repetir: ${label}`;
+        }
+        modal.querySelectorAll('.qc-nr-opt').forEach(x=>{
+          const active = +x.dataset.w===getW();
+          x.classList.toggle('active', active);
+          const check=document.getElementById('qc-nr-check-'+x.dataset.w);
+          if(check) check.textContent=active?'●':'○';
+        });
+        const info=document.getElementById('qc-nr-modal-info');
+        if(info){
+          const w2=getW();
+          info.textContent = w2? `Filtrando <${w2}d · chivato activo` : 'Sin filtro · solo chivato';
+        }
+        // no cerrar automaticamente, dejar elegir
+      };
+    });
+    const close=document.getElementById('qc-nr-close');
+    if(close && !close._fixed){
+      close._fixed=true;
+      close.onclick=()=>modal.classList.remove('open');
+    }
+    modal.onclick=(e)=>{
+      if(e.target.id==='qc-nr-modal') modal.classList.remove('open');
+    };
+  }
+  
+  // Inicializar
+  let tries=0;
+  const iv=setInterval(()=>{
+    tries++;
+    createNrBtn();
+    attachNrModal();
+    if(tries>60) clearInterval(iv);
+  },400);
+  setTimeout(()=>{createNrBtn(); attachNrModal();},200);
+})();
+</script>
+
 </body></html>
