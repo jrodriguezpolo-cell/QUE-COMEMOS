@@ -1029,20 +1029,85 @@ setInterval(()=>{ renderBanners(); },1000);
     return fila2;
   }
   
-  function hideOriginalEquilibrioPrecise(){
-    // Buscar exactamente el label "Equilibrio semanal (nº raciones)"
-    const labels=[...document.querySelectorAll('div.font-bold')].filter(d=>d.textContent.includes('Equilibrio semanal'));
-    labels.forEach(lbl=>{
-      const container=lbl.parentElement; // div que contiene label + grid
-      if(container && !container.classList.contains('qc-eq-original-hidden')){
-        // Solo ocultar si tiene el grid de inputs dentro
-        if(container.querySelector('input[type="number"]')){
-          container.classList.add('qc-eq-original-hidden');
-          container.style.display='none';
+  function removeOriginalEquilibrio(){
+    try{
+      // Buscar y eliminar el bloque original
+      const labels=[...document.querySelectorAll('div.font-bold')].filter(d=>d.textContent.includes('Equilibrio semanal (nº raciones)'));
+      labels.forEach(lbl=>{
+        // No tocar si está dentro de nuestro modal
+        if(lbl.closest('#qc-eq-modal')) return;
+        let container=lbl.parentElement;
+        // Subir hasta encontrar el contenedor que agrupa label + grid
+        let attempts=0;
+        while(container && attempts<4){
+          if(container.querySelector('div.grid') && container.textContent.includes('Equilibrio semanal')){
+            container.remove();
+            break;
+          }
+          container=container.parentElement;
+          attempts++;
+        }
+      });
+      // Eliminar botón Preset original
+      [...document.querySelectorAll('button')].forEach(b=>{
+        if(b.textContent.trim()==='Preset' && !b.closest('#qc-eq-modal') && !b.id){
+          b.remove();
+        }
+      });
+    }catch(e){}
+  }
+
+  // Observer que elimina en el instante que React lo inserta
+  const eqObserver = new MutationObserver((mutations)=>{
+    for(const mut of mutations){
+      for(const node of mut.addedNodes){
+        if(!(node instanceof HTMLElement)) continue;
+        if(node.textContent && node.textContent.includes('Equilibrio semanal (nº raciones)') && !node.closest('#qc-eq-modal')){
+          // Si el nodo mismo es el contenedor o contiene el label
+          if(node.textContent.includes('Equilibrio semanal (nº raciones)')){
+            // Si es el label, eliminar su contenedor
+            const label = node.querySelector && node.querySelector('div.font-bold') ? [...node.querySelectorAll('div.font-bold')].find(d=>d.textContent.includes('Equilibrio semanal')) : null;
+            if(label){
+              let c=label.parentElement;
+              let a=0;
+              while(c && a<4){
+                if(c.querySelector('div.grid')){ c.remove(); break; }
+                c=c.parentElement; a++;
+              }
+            } else if(node.matches && node.matches('div.font-bold') && node.textContent.includes('Equilibrio semanal')){
+              let c=node.parentElement;
+              let a=0;
+              while(c && a<4){
+                if(c.querySelector('div.grid')){ c.remove(); break; }
+                c=c.parentElement; a++;
+              }
+            }
+          }
+        }
+        // Botón Preset
+        if(node.tagName==='BUTTON' && node.textContent.trim()==='Preset' && !node.closest('#qc-eq-modal')){
+          node.remove();
+        }
+        if(node.querySelectorAll){
+          const innerLabels=[...node.querySelectorAll('div.font-bold')].filter(d=>d.textContent.includes('Equilibrio semanal (nº raciones)'));
+          innerLabels.forEach(lbl=>{
+            if(lbl.closest('#qc-eq-modal')) return;
+            let c=lbl.parentElement;
+            let a=0;
+            while(c && a<4){
+              if(c.querySelector('div.grid')){ c.remove(); break; }
+              c=c.parentElement; a++;
+            }
+          });
+          const presetBtns=[...node.querySelectorAll('button')].filter(b=>b.textContent.trim()==='Preset' && !b.closest('#qc-eq-modal') && !b.id);
+          presetBtns.forEach(b=>b.remove());
         }
       }
-    });
-  }
+    }
+  });
+  eqObserver.observe(document.body, {childList:true, subtree:true});
+
+  function hideOriginalEquilibrioPrecise(){ removeOriginalEquilibrio(); }
   
   function buildEqModal(){
     const list=document.getElementById('qc-eq-list');
@@ -2189,10 +2254,10 @@ setInterval(()=>{ renderBanners(); },1000);
   }
 
   // Persistente, nunca se detiene
-  setInterval(()=>{ recreateButtons(); hideOriginalEquilibrioPrecise(); }, 600);
+  setInterval(()=>{ recreateButtons(); removeOriginalEquilibrio(); removeOriginalEquilibrio(); }, 600);
   // También al inicio rápido
   let fast=0;
-  const fastIv=setInterval(()=>{ fast++; recreateButtons(); hideOriginalEquilibrioPrecise(); if(fast>20) clearInterval(fastIv); },300);
+  const fastIv=setInterval(()=>{ fast++; recreateButtons(); removeOriginalEquilibrio(); removeOriginalEquilibrio(); if(fast>20) clearInterval(fastIv); },300);
 })();
 </script>
 
