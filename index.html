@@ -4,752 +4,129 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <style>body{background:#fef7ed} .bg-\[\#fef7ed\]{background:#fef7ed}</style>
 
-<style id="qc-fix-final-botonera">
-  /* Asegurar que Turnos no cause salto: reservar espacio desde inicio */
-  #qc-turnos-btn { display:inline-flex !important; align-items:center; justify-content:center; }
-</style>
-<script>
-(function(){
-  function fixBotonera(){
-    try{
-      const sel=[...document.querySelectorAll('select')].find(s=>[...s.options].some(o=>/Auto \(verano\)/i.test(o.textContent)));
-      const gen=[...document.querySelectorAll('button')].find(b=>/Generar semana/i.test(b.textContent));
-      const turnos=document.getElementById('qc-turnos-btn');
-      const preset=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Preset');
-      if(!sel || !gen) return;
-
-      // Altura nativa del selector (normalmente 40-42px) - usamos esa como referencia
-      const h = Math.max(sel.offsetHeight || 42, 42) + 'px';
-
-      // Igualar todos a esa altura
-      [sel, gen, turnos, preset].forEach(el=>{
-        if(!el) return;
-        el.style.height=h;
-        el.style.minHeight=h;
-        el.style.boxSizing='border-box';
-        el.style.display='inline-flex';
-        el.style.alignItems='center';
-        el.style.justifyContent='center';
-        el.style.verticalAlign='middle';
-      });
-
-      // Contenedor que agrupa temporada + botones - forzar flex-start sin hueco
-      // Buscar padre común que contenga sel y gen
-      let parent=sel.parentElement;
-      for(let i=0;i<5;i++){
-        if(!parent) break;
-        if(parent.querySelector('select') && parent.querySelector('button')){
-          parent.style.display='flex';
-          parent.style.flexWrap='wrap';
-          parent.style.alignItems='center';
-          parent.style.justifyContent='flex-start';
-          parent.style.gap='8px';
-          break;
-        }
-        parent=parent.parentElement;
-      }
-
-      // Subcontenedor de botones (Generar+Turnos+Preset) pegado sin margin-left auto
-      if(gen && gen.parentElement){
-        const wrap=gen.parentElement;
-        wrap.style.display='flex';
-        wrap.style.alignItems='center';
-        wrap.style.gap='8px';
-        wrap.style.marginLeft='0';
-        wrap.style.flex='0 0 auto';
-      }
-
-      // Evitar salto: si Turnos aún no existe, crear placeholder invisible del mismo tamaño para reservar espacio
-      if(!turnos && gen){
-        const placeholder=document.createElement('button');
-        placeholder.id='qc-turnos-placeholder';
-        placeholder.style.visibility='hidden';
-        placeholder.style.height=h;
-        placeholder.style.width='90px';
-        placeholder.style.pointerEvents='none';
-        gen.parentElement.appendChild(placeholder);
-      } else {
-        const ph=document.getElementById('qc-turnos-placeholder');
-        if(ph && turnos) ph.remove();
-      }
-    }catch(e){}
-  }
-  // Inyectar Turnos inmediato para evitar salto
-  try{
-    const origInject = window.injectAll || null;
-  }catch{}
-  setTimeout(fixBotonera, 0);
-  setTimeout(fixBotonera, 100);
-  setTimeout(fixBotonera, 500);
-  setInterval(fixBotonera, 1000);
-  // También cuando se inyecta Turnos
-  const obs=new MutationObserver(()=>fixBotonera());
-  obs.observe(document.body, {childList:true, subtree:true});
-})();
-</script>
-
-
-<style id="qc-align-fix">
-  /* Forzar alineación perfecta temporada + botones */
-  select.qc-stable-temp, #qc-turnos-btn, button:has-text("Generar semana") {
-    vertical-align: middle !important;
-  }
-</style>
-<script>
-(function(){
-  function alignPerfect(){
-    const sel=document.querySelector('select');
-    // find temporada select
-    const temporada=[...document.querySelectorAll('select')].find(s=>[...s.options].some(o=>/Auto \(verano\)/i.test(o.textContent)));
-    const gen=[...document.querySelectorAll('button')].find(b=>/Generar semana/i.test(b.textContent));
-    const turnos=document.getElementById('qc-turnos-btn');
-    const preset=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Preset');
-    if(!temporada || !gen) return;
-    const H='44px';
-    [temporada, gen, turnos, preset].forEach(el=>{
-      if(!el) return;
-      el.style.height=H;
-      el.style.minHeight=H;
-      el.style.maxHeight=H;
-      el.style.lineHeight=H;
-      el.style.paddingTop='0';
-      el.style.paddingBottom='0';
-      el.style.marginTop='0';
-      el.style.marginBottom='0';
-      el.style.boxSizing='border-box';
-      el.style.display='inline-flex';
-      el.style.alignItems='center';
-      el.style.justifyContent='center';
-    });
-    // Contenedor común
-    let c=temporada.parentElement;
-    for(let i=0;i<6;i++){
-      if(!c) break;
-      if(c.querySelector('select') && c.querySelector('button')){
-        c.style.display='flex';
-        c.style.flexDirection='row';
-        c.style.flexWrap='wrap';
-        c.style.alignItems='center';
-        c.style.justifyContent='flex-start';
-        c.style.gap='8px';
-        c.style.lineHeight='1';
-        break;
-      }
-      c=c.parentElement;
-    }
-    // Subcontenedor botones
-    if(gen && gen.parentElement){
-      const w=gen.parentElement;
-      w.style.display='flex';
-      w.style.alignItems='center';
-      w.style.gap='8px';
-    }
-  }
-  setTimeout(alignPerfect, 0);
-  setTimeout(alignPerfect, 200);
-  setTimeout(alignPerfect, 800);
-  new MutationObserver(alignPerfect).observe(document.body, {childList:true, subtree:true});
-})();
-</script>
-
-
-<script>
-(function(){
-  function alignBottom(){
-    const sel=[...document.querySelectorAll('select')].find(s=>[...s.options].some(o=>/Auto \(verano\)/i.test(o.textContent)));
-    const gen=[...document.querySelectorAll('button')].find(b=>/Generar semana/i.test(b.textContent));
-    if(!sel || !gen) return;
-    // Encontrar contenedor padre que tiene sel y gen (o sus wrappers)
-    let outer=sel.parentElement;
-    for(let i=0;i<6;i++){
-      if(!outer) break;
-      if(outer.querySelector('select') && outer.querySelector('button')){
-        outer.style.display='flex';
-        outer.style.flexWrap='wrap';
-        outer.style.alignItems='flex-end'; // alinear abajo para que selector y botones estén a misma altura visual
-        outer.style.gap='8px';
-        break;
-      }
-      outer=outer.parentElement;
-    }
-    // Asegurar que wrapper de temporada también alinee abajo
-    const tempWrapper=sel.parentElement;
-    if(tempWrapper){
-      tempWrapper.style.display='flex';
-      tempWrapper.style.flexDirection='column';
-      tempWrapper.style.justifyContent='flex-end';
-      tempWrapper.style.marginBottom='0';
-    }
-    // Wrapper botones
-    const btnWrapper=gen.parentElement;
-    if(btnWrapper){
-      btnWrapper.style.display='flex';
-      btnWrapper.style.alignItems='flex-end';
-      btnWrapper.style.alignSelf='flex-end';
-      btnWrapper.style.gap='8px';
-      btnWrapper.style.marginBottom='0';
-      btnWrapper.style.paddingBottom='0';
-    }
-    // Igualar altura exacta
-    const H='44px';
-    [sel, gen, document.getElementById('qc-turnos-btn'), [...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Preset')].forEach(el=>{
-      if(!el) return;
-      el.style.height=H;
-      el.style.minHeight=H;
-      el.style.paddingLeft='22px';
-      el.style.paddingRight='22px';
-      el.style.marginBottom='0';
-      el.style.transform='translateY(0)';
-    });
-  }
-  setTimeout(alignBottom, 0);
-  setTimeout(alignBottom, 300);
-  setTimeout(alignBottom, 1000);
-  new MutationObserver(alignBottom).observe(document.body, {childList:true, subtree:true});
-})();
-</script>
-
-
-<script>
-(function(){
-  function anchoGenerar(){
-    const gen=[...document.querySelectorAll('button')].find(b=>/Generar semana/i.test(b.textContent));
-    if(gen){
-      gen.style.width='auto';
-      gen.style.minWidth='205px';
-      gen.style.paddingLeft='22px';
-      gen.style.paddingRight='22px';
-      gen.style.whiteSpace='nowrap';
-    }
-  }
-  setTimeout(anchoGenerar,0);
-  setTimeout(anchoGenerar,500);
-})();
-</script>
-
-
-
-
-
-<style id="qc-mobile-clean">
+<style id="qc-fix-estable">
+  /* Desktop: selector 140px, generar 205px, todo 44px misma altura */
+  /* Móvil: fila1 selector 100%, fila2 3 botones misma línea sin salto */
   @media (max-width: 640px) {
-    /* Evitar corte */
-    body { overflow-x: hidden; }
-    #qc-turnos-btn, button { max-width: 100%; }
+    /* El grid que contiene Temporada + botones -> 1 columna fija */
+    .qc-temporada-grid {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 8px !important;
+    }
+    .qc-temporada-grid > div:first-child {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+    .qc-temporada-grid > div:first-child select {
+      width: 100% !important;
+    }
+    .qc-botones-row {
+      display: flex !important;
+      flex-wrap: nowrap !important;
+      gap: 6px !important;
+      width: 100% !important;
+      overflow: visible !important;
+    }
+    .qc-botones-row button {
+      white-space: nowrap !important;
+    }
+    .qc-botones-row button:nth-child(1) { /* Generar */
+      flex: 1 1 auto !important;
+      min-width: 0 !important;
+      padding-left: 12px !important;
+      padding-right: 12px !important;
+      font-size: 14px !important;
+    }
+    .qc-botones-row button:nth-child(2),
+    .qc-botones-row button:nth-child(3) {
+      flex: 0 0 auto !important;
+    }
+  }
+  @media (min-width: 641px) {
+    .qc-temporada-grid {
+      display: flex !important;
+      flex-direction: row !important;
+      flex-wrap: wrap !important;
+      gap: 8px !important;
+      align-items: flex-end !important;
+    }
+    .qc-temporada-grid > div:first-child {
+      flex: 0 0 140px !important;
+      width: 140px !important;
+    }
+    .qc-temporada-grid > div:first-child select {
+      width: 140px !important;
+      height: 44px !important;
+    }
+    .qc-botones-row button {
+      height: 44px !important;
+      min-height: 44px !important;
+    }
   }
 </style>
 <script>
 (function(){
-  let moved=false;
-  function fixMobile(){
-    const isMobile = window.innerWidth < 640;
+  // Inyección estable de Turnos desde el primer frame, sin setTimeout que mueva
+  function injectTurnosEstable(){
     const sel=[...document.querySelectorAll('select')].find(s=>[...s.options].some(o=>/Auto \(verano\)/i.test(o.textContent)));
     const gen=[...document.querySelectorAll('button')].find(b=>/Generar semana/i.test(b.textContent));
-    const turnos=document.getElementById('qc-turnos-btn');
-    const preset=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Preset');
-    if(!sel || !gen || !turnos || !preset) return;
+    if(!sel || !gen) return false;
     
-    const outer = (()=>{
-      let c=sel.parentElement;
-      for(let i=0;i<6;i++){
-        if(!c) break;
-        if(c.querySelector('select') && c.querySelector('button')) return c;
-        c=c.parentElement;
-      }
-      return null;
-    })();
-    if(!outer) return;
-    
-    const tempWrapper = sel.parentElement; // contiene label + select
-    const btnWrapper = gen.parentElement; // contiene gen + preset + turnos
-    
-    outer.style.display='flex';
-    outer.style.flexWrap='wrap';
-    outer.style.gap='8px';
-    outer.style.overflow='visible';
-    outer.style.alignItems='flex-start';
-    
-    if(isMobile){
-      // MÓVIL: Estructura deseada
-      // Fila 1: [Temporada 130px] [Generar 150px + Preset]
-      // Fila 2: [Turnos] debajo de Temporada
-      
-      // 1. Temporada compacta
-      sel.style.width='130px';
-      sel.style.maxWidth='130px';
-      sel.style.minWidth='130px';
-      tempWrapper.style.flex='0 0 130px';
-      tempWrapper.style.order='1';
-      
-      // 2. BtnWrapper solo con Generar + Preset en fila 1
-      if(btnWrapper){
-        btnWrapper.style.display='flex';
-        btnWrapper.style.flexWrap='nowrap';
-        btnWrapper.style.gap='6px';
-        btnWrapper.style.order='2';
-        btnWrapper.style.flex='1 1 auto';
-        btnWrapper.style.overflow='visible';
-        btnWrapper.style.minWidth='0';
-      }
-      gen.style.minWidth='130px';
-      gen.style.flex='1 1 130px';
-      gen.style.paddingLeft='12px';
-      gen.style.paddingRight='12px';
-      gen.style.whiteSpace='nowrap';
-      gen.style.order='0';
-      
-      preset.style.flex='0 0 auto';
-      preset.style.order='0';
-      
-      // 3. Sacar Turnos del btnWrapper y ponerlo debajo de Temporada en fila 2
-      if(btnWrapper && btnWrapper.contains(turnos)){
-        // Mover Turnos fuera del btnWrapper al outer
-        outer.appendChild(turnos);
-        moved=true;
-      }
-      turnos.style.order='3';
-      turnos.style.flex='0 0 auto';
-      turnos.style.alignSelf='flex-start';
-      turnos.style.marginLeft='0';
-      turnos.style.marginTop='0';
-      // Forzar que Turnos vaya a nueva línea debajo de Temporada
-      // Hacemos que ocupe su propia línea: flex-basis 100% pero con max-content
-      turnos.style.flexBasis='auto';
-      // Crear salto de línea con pseudo: ponemos que outer tenga wrap y Turnos esté después
-      // Si aún no cabe Preset, reducimos aún más Generar
-      const available = window.innerWidth - 32 - sel.offsetWidth - 12;
-      if(preset.offsetLeft + preset.offsetWidth > window.innerWidth - 16){
-        gen.style.minWidth='110px';
-        gen.style.flex='1 1 110px';
-        gen.style.fontSize='14px';
-      }
-    } else {
-      // DESKTOP: restaurar
-      if(moved && outer.contains(turnos) && btnWrapper && !btnWrapper.contains(turnos)){
-        btnWrapper.appendChild(turnos);
-      }
-      sel.style.width='140px';
-      sel.style.maxWidth='140px';
-      sel.style.minWidth='140px';
-      tempWrapper.style.flex='0 0 140px';
-      tempWrapper.style.order='0';
-      
-      if(btnWrapper){
-        btnWrapper.style.order='0';
-        btnWrapper.style.flex='0 0 auto';
-        btnWrapper.style.flexWrap='nowrap';
-      }
-      gen.style.minWidth='205px';
-      gen.style.flex='0 0 205px';
-      gen.style.paddingLeft='22px';
-      gen.style.paddingRight='22px';
-      gen.style.fontSize='';
-      gen.style.order='0';
-      preset.style.order='0';
-      turnos.style.order='0';
-      turnos.style.flexBasis='auto';
-    }
-  }
-  // Ejecutar sin salto: inmediato y sin re-ordenar después
-  fixMobile();
-  window.addEventListener('resize', fixMobile);
-  setTimeout(fixMobile, 100);
-  setTimeout(fixMobile, 600);
-})();
-</script>
-
-
-<script>
-(function(){
-  function ordenSolicitado(){
-    const isMobile = window.innerWidth < 640;
-    const sel=[...document.querySelectorAll('select')].find(s=>[...s.options].some(o=>/Auto \(verano\)/i.test(o.textContent)));
-    const gen=[...document.querySelectorAll('button')].find(b=>/Generar semana/i.test(b.textContent));
-    const turnos=document.getElementById('qc-turnos-btn');
-    const preset=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Preset');
-    if(!sel || !gen || !turnos || !preset) return;
-    
-    const outer = (()=>{
-      let c=sel.parentElement;
-      for(let i=0;i<6;i++){
-        if(!c) break;
-        if(c.querySelector('select') && c.querySelector('button')) return c;
-        c=c.parentElement;
-      }
-      return null;
-    })();
-    if(!outer) return;
-    const tempWrapper = sel.parentElement;
-    const btnWrapper = gen.parentElement;
-    
-    if(isMobile){
-      // Fila 1: [Auto 130px] [Generar] [Preset] en misma línea
-      outer.style.display='flex';
-      outer.style.flexWrap='wrap';
-      outer.style.gap='8px';
-      outer.style.alignItems='flex-start';
-      
-      sel.style.width='125px';
-      sel.style.maxWidth='125px';
-      sel.style.minWidth='125px';
-      tempWrapper.style.flex='0 0 125px';
-      tempWrapper.style.order='1';
-      
-      // BtnWrapper solo Generar + Preset en fila 1
-      if(btnWrapper){
-        btnWrapper.style.display='flex';
-        btnWrapper.style.flex='1 1 auto';
-        btnWrapper.style.gap='6px';
-        btnWrapper.style.order='2';
-        btnWrapper.style.flexWrap='nowrap';
-        btnWrapper.style.minWidth='0';
-        // Asegurar que contiene gen y preset, y NO turnos
-        if(btnWrapper.contains(turnos)){
-          outer.appendChild(turnos);
-        }
-        if(!btnWrapper.contains(gen)) btnWrapper.prepend(gen);
-        if(!btnWrapper.contains(preset)) btnWrapper.appendChild(preset);
-      }
-      
-      gen.style.minWidth='120px';
-      gen.style.flex='1 1 120px';
-      gen.style.paddingLeft='12px';
-      gen.style.paddingRight='12px';
-      
-      // Turnos debajo de Generar semana (segunda línea, alineado debajo de Generar)
-      turnos.style.order='3';
-      turnos.style.flex='0 0 auto';
-      // Margin-left = ancho Auto + gap = 125+8 = 133px para que quede debajo de Generar
-      turnos.style.marginLeft='133px';
-      turnos.style.marginTop='0';
-      
-    } else {
-      // Desktop: todo en una línea
-      sel.style.width='140px';
-      sel.style.maxWidth='140px';
-      sel.style.minWidth='140px';
-      tempWrapper.style.flex='0 0 140px';
-      tempWrapper.style.order='0';
-      if(btnWrapper){
-        btnWrapper.style.order='0';
-        btnWrapper.style.flex='0 0 auto';
-        if(!btnWrapper.contains(turnos)) btnWrapper.appendChild(turnos);
-        if(!btnWrapper.contains(gen)) btnWrapper.prepend(gen);
-        if(!btnWrapper.contains(preset)) btnWrapper.appendChild(preset);
-      }
-      gen.style.minWidth='205px';
-      gen.style.flex='0 0 205px';
-      turnos.style.marginLeft='0';
-      turnos.style.order='0';
-    }
-  }
-  ordenSolicitado();
-  window.addEventListener('resize', ordenSolicitado);
-  setTimeout(ordenSolicitado, 80);
-  setTimeout(ordenSolicitado, 500);
-})();
-</script>
-
-
-<style id="qc-grid-mobile">
-  @media (max-width: 640px) {
-    /* Forzar grid en móvil para orden exacto */
-  }
-</style>
-<script>
-(function(){
-  function gridOrden(){
-    const isMobile = window.innerWidth < 640;
-    const sel=[...document.querySelectorAll('select')].find(s=>[...s.options].some(o=>/Auto \(verano\)/i.test(o.textContent)));
-    const gen=[...document.querySelectorAll('button')].find(b=>/Generar semana/i.test(b.textContent));
-    const turnos=document.getElementById('qc-turnos-btn');
-    const preset=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Preset');
-    if(!sel || !gen || !turnos || !preset) return;
-    
-    const outer = (()=>{
-      let c=sel.parentElement;
-      for(let i=0;i<8;i++){
-        if(!c) break;
-        if(c.textContent.includes('Temporada') && c.querySelector('select') && c.querySelector('button')) return c;
-        c=c.parentElement;
-      }
-      return null;
-    })();
-    if(!outer) return;
-    
-    if(isMobile){
-      // MÓVIL: Grid 3 columnas
-      outer.style.display='grid';
-      outer.style.gridTemplateColumns='125px 1fr auto';
-      outer.style.gridTemplateRows='44px 44px';
-      outer.style.gap='6px';
-      outer.style.alignItems='center';
-      outer.style.justifyItems='start';
-      
-      // Colocar cada elemento en su celda
-      sel.style.gridColumn='1';
-      sel.style.gridRow='1';
-      sel.style.width='125px';
-      sel.style.maxWidth='125px';
-      sel.style.margin='0';
-      
-      gen.style.gridColumn='2';
-      gen.style.gridRow='1';
-      gen.style.width='100%';
-      gen.style.minWidth='0';
-      gen.style.margin='0';
-      
-      preset.style.gridColumn='3';
-      preset.style.gridRow='1';
-      preset.style.margin='0';
-      
-      turnos.style.gridColumn='2';
-      turnos.style.gridRow='2';
-      turnos.style.width='100%';
-      turnos.style.margin='0';
-      turnos.style.marginLeft='0';
-      
-      // Ocultar label Temporada para ahorrar espacio? No, mantener pero ajustar
-      const label = outer.querySelector('label, span');
-    } else {
-      // DESKTOP: volver a flex
-      outer.style.display='flex';
-      outer.style.gridTemplateColumns='';
-      outer.style.gridTemplateRows='';
-      outer.style.flexWrap='wrap';
-      outer.style.gap='8px';
-      sel.style.gridColumn='';
-      sel.style.gridRow='';
-      gen.style.gridColumn='';
-      gen.style.gridRow='';
-      preset.style.gridColumn='';
-      preset.style.gridRow='';
-      turnos.style.gridColumn='';
-      turnos.style.gridRow='';
-      sel.style.width='140px';
-      gen.style.width='205px';
-      turnos.style.width='auto';
-    }
-  }
-  gridOrden();
-  window.addEventListener('resize', gridOrden);
-  setTimeout(gridOrden, 100);
-  setTimeout(gridOrden, 600);
-})();
-</script>
-
-
-<script>
-(function(){
-  function fixSelectorAncho(){
-    const isMobile = window.innerWidth < 640;
-    const sel=[...document.querySelectorAll('select')].find(s=>[...s.options].some(o=>/Auto \(verano\)/i.test(o.textContent)));
-    const gen=[...document.querySelectorAll('button')].find(b=>/Generar semana/i.test(b.textContent));
-    const turnos=document.getElementById('qc-turnos-btn');
-    const preset=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Preset');
-    if(!sel || !gen || !preset) return;
-    
-    // Encontrar el grid padre: grid md:grid-cols-2 gap-3 que contiene Temporada
-    let gridParent = sel.parentElement; // div que contiene label Temporada + select
-    // Subir hasta encontrar el grid
-    for(let i=0;i<5;i++){
-      if(!gridParent) break;
-      if(gridParent.className && gridParent.className.includes('grid') && gridParent.className.includes('gap-3')){
-        break;
-      }
-      // También el grid que tiene 2 hijos: Temporada div y botones div
-      if(gridParent.children.length===2 && gridParent.querySelector('select') && gridParent.querySelector('button')){
-        break;
-      }
-      gridParent = gridParent.parentElement;
-    }
-    if(!gridParent) return;
-    
-    if(isMobile){
-      // MÓVIL: convertir grid de 1 columna en flex fila
-      gridParent.style.display='flex';
-      gridParent.style.flexDirection='row';
-      gridParent.style.flexWrap='wrap';
-      gridParent.style.gap='6px';
-      gridParent.style.alignItems='flex-end';
-      
-      const tempDiv = sel.parentElement; // div con Temporada label + select
-      const btnsDiv = gen.parentElement; // div flex items-end gap-2 con Generar + Preset (+ Turnos inyectado)
-      
-      // Temporada div: quitar w-full, hacerlo 125px
-      tempDiv.style.flex='0 0 125px';
-      tempDiv.style.width='125px';
-      tempDiv.style.maxWidth='125px';
-      tempDiv.style.minWidth='125px';
-      
-      sel.style.width='125px';
-      sel.style.maxWidth='125px';
-      sel.style.minWidth='125px';
-      sel.classList.remove('w-full');
-      sel.style.setProperty('width','125px','important');
-      
-      // Botones div: ocupar resto
-      if(btnsDiv){
-        btnsDiv.style.flex='1 1 180px';
-        btnsDiv.style.display='flex';
-        btnsDiv.style.flexWrap='nowrap';
-        btnsDiv.style.gap='6px';
-        btnsDiv.style.alignItems='flex-end';
-        btnsDiv.style.width='auto';
-        btnsDiv.style.minWidth='0';
-      }
-      
-      gen.style.flex='1 1 110px';
-      gen.style.minWidth='110px';
-      gen.style.paddingLeft='10px';
-      gen.style.paddingRight='10px';
-      gen.style.fontSize='15px';
-      
-      // Turnos: sacarlo de btnsDiv si está dentro y ponerlo en segunda fila debajo de Generar
-      if(turnos){
-        // Si turnos está dentro de btnsDiv, lo sacamos a gridParent como tercer elemento
-        if(btnsDiv && btnsDiv.contains(turnos)){
-          gridParent.appendChild(turnos);
-        }
-        // Ahora gridParent es flex wrap, así que Turnos irá a segunda línea si no cabe
-        // Para forzarlo debajo de Generar (col 2), le damos margin-left = ancho tempDiv + gap
-        turnos.style.flex='0 0 auto';
-        turnos.style.marginLeft='131px'; // 125 + 6 gap
-        turnos.style.order='3';
-        turnos.style.width='auto';
-      }
-    } else {
-      // DESKTOP: restaurar
-      gridParent.style.display='';
-      gridParent.style.flexDirection='';
-      gridParent.style.flexWrap='';
-      gridParent.style.gap='';
-      gridParent.style.alignItems='';
-      
-      const tempDiv = sel.parentElement;
-      const btnsDiv = gen.parentElement;
-      
-      if(tempDiv){
-        tempDiv.style.flex='';
-        tempDiv.style.width='';
-        tempDiv.style.maxWidth='';
-        tempDiv.style.minWidth='';
-      }
-      sel.style.width='';
-      sel.style.maxWidth='';
-      sel.style.minWidth='';
-      sel.classList.add('w-full');
-      
-      if(btnsDiv){
-        btnsDiv.style.flex='';
-        btnsDiv.style.width='';
-      }
-      gen.style.flex='';
-      gen.style.minWidth='205px';
-      gen.style.paddingLeft='22px';
-      gen.style.paddingRight='22px';
-      gen.style.fontSize='';
-      
-      if(turnos){
-        // Volver a meter Turnos en btnsDiv junto a Generar y Preset si quieres todo en misma línea desktop
-        if(btnsDiv && !btnsDiv.contains(turnos)){
-          btnsDiv.appendChild(turnos);
-        }
-        turnos.style.marginLeft='0';
-        turnos.style.order='';
-      }
-    }
-  }
-  fixSelectorAncho();
-  window.addEventListener('resize', fixSelectorAncho);
-  setTimeout(fixSelectorAncho, 100);
-  setTimeout(fixSelectorAncho, 600);
-  setTimeout(fixSelectorAncho, 1500);
-})();
-</script>
-
-
-<script>
-(function(){
-  function simpleMobile(){
-    const isMobile = window.innerWidth < 640;
-    const sel=[...document.querySelectorAll('select')].find(s=>[...s.options].some(o=>/Auto \(verano\)/i.test(o.textContent)));
-    const gen=[...document.querySelectorAll('button')].find(b=>/Generar semana/i.test(b.textContent));
-    const turnos=document.getElementById('qc-turnos-btn');
-    const preset=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Preset');
-    if(!sel || !gen || !preset || !turnos) return;
-    
+    // Encontrar grid padre
     let gridParent = sel.parentElement;
     for(let i=0;i<6;i++){
       if(!gridParent) break;
       if(gridParent.children.length>=2 && gridParent.querySelector('select') && gridParent.querySelector('button')) break;
       gridParent = gridParent.parentElement;
     }
-    if(!gridParent) return;
+    if(!gridParent) return false;
     
-    const tempDiv = sel.parentElement;
+    // Marcar para CSS
+    gridParent.classList.add('qc-temporada-grid');
     const btnsDiv = gen.parentElement;
+    if(btnsDiv) btnsDiv.classList.add('qc-botones-row');
     
-    if(isMobile){
-      // MÓVIL: Volver a layout original simple de 2 filas pero con 3 botones en fila 2
-      gridParent.style.display='grid';
-      gridParent.style.gridTemplateColumns='1fr';
-      gridParent.style.gap='8px';
-      
-      tempDiv.style.flex='';
-      tempDiv.style.width='100%';
-      tempDiv.style.maxWidth='100%';
-      sel.style.width='100%';
-      sel.style.maxWidth='100%';
-      sel.classList.add('w-full');
-      
-      // Asegurar que los 3 botones están dentro del mismo contenedor
-      if(!btnsDiv.contains(turnos)){
-        btnsDiv.appendChild(turnos);
+    // Inyectar Turnos directamente en btnsDiv si no existe
+    let turnos=document.getElementById('qc-turnos-btn');
+    if(!turnos){
+      turnos=document.createElement('button');
+      turnos.id='qc-turnos-btn';
+      turnos.textContent='👩 Turnos';
+      turnos.className='h-[54px] md:h-[44px] px-4 bg-white border-2 rounded-xl font-bold text-[15px] md:text-[13px]';
+      turnos.style.cssText='height:44px;padding:0 14px;border-radius:12px;border:1px solid #e7dcc9;background:#ffffff;color:#111827;font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;';
+      turnos.onclick=()=>{
+        const m=document.getElementById('qc-turnos-modal');
+        if(m) m.classList.add('open');
+      };
+      if(btnsDiv){
+        // Insertar como 3er botón, después de Preset
+        const preset=[...btnsDiv.querySelectorAll('button')].find(b=>b.textContent.trim()==='Preset');
+        if(preset){
+          preset.insertAdjacentElement('afterend', turnos);
+        } else {
+          btnsDiv.appendChild(turnos);
+        }
       }
-      if(!btnsDiv.contains(preset)){
-        btnsDiv.appendChild(preset);
-      }
-      if(!btnsDiv.contains(gen)){
-        btnsDiv.prepend(gen);
-      }
-      
-      btnsDiv.style.display='flex';
-      btnsDiv.style.flexWrap='nowrap';
-      btnsDiv.style.gap='6px';
-      btnsDiv.style.alignItems='center';
-      btnsDiv.style.width='100%';
-      
-      gen.style.flex='1 1 auto';
-      gen.style.minWidth='0';
-      gen.style.paddingLeft='12px';
-      gen.style.paddingRight='12px';
-      gen.style.fontSize='14px';
-      
-      preset.style.flex='0 0 auto';
-      turnos.style.flex='0 0 auto';
-      turnos.style.marginLeft='0';
-      turnos.style.order='0';
-      
     } else {
-      // DESKTOP
-      gridParent.style.display='flex';
-      gridParent.style.gap='8px';
-      tempDiv.style.width='140px';
-      tempDiv.style.maxWidth='140px';
-      sel.style.width='140px';
-      sel.classList.remove('w-full');
-      btnsDiv.style.display='flex';
-      btnsDiv.style.gap='8px';
-      gen.style.flex='0 0 205px';
-      gen.style.minWidth='205px';
-      gen.style.fontSize='';
+      // Si ya existe pero está fuera, moverlo dentro de btnsDiv
+      if(btnsDiv && !btnsDiv.contains(turnos)){
+        const preset=[...btnsDiv.querySelectorAll('button')].find(b=>b.textContent.trim()==='Preset');
+        if(preset) preset.insertAdjacentElement('afterend', turnos);
+        else btnsDiv.appendChild(turnos);
+      }
     }
+    return true;
   }
-  simpleMobile();
-  window.addEventListener('resize', simpleMobile);
-  setTimeout(simpleMobile, 100);
-  setTimeout(simpleMobile, 600);
+  
+  // Ejecutar SINCRONO antes de paint
+  try{ injectTurnosEstable(); }catch(e){}
+  
+  // Observar solo para asegurar que se queda dentro, sin reordenar
+  const obs=new MutationObserver(()=>{
+    try{ injectTurnosEstable(); }catch(e){}
+  });
+  obs.observe(document.body, {childList:true, subtree:true});
 })();
 </script>
 
@@ -1003,7 +380,7 @@ function injectAll(force){
 }
 function buildModal(){const list=document.getElementById('qc-turnos-list'); const t=getT(); list.innerHTML=''; DIAS.forEach((d,i)=>{const row=document.createElement('div'); row.className='qc-turno-row'; row.innerHTML=`<label>${d}</label><select data-i="${i}">${TURNOS.map(v=>`<option value="${v}" ${t[i]===v?'selected':''}>${v}</option>`).join('')}</select>`; list.appendChild(row);});}
 let triesTools=0; const ivTools=setInterval(()=>{ triesTools++; if(initTools()||triesTools>50) clearInterval(ivTools); },600);
-try{ injectAll(); }catch(e){} let tries=0; const iv=setInterval(()=>{ tries++; if(injectAll()||tries>10) clearInterval(iv); },100);
+try{ injectAll(); }catch(e){} 
 setInterval(()=>{ injectAll(true); },2000);
 document.getElementById('qc-turnos-save').onclick=()=>{const o={}; document.querySelectorAll('#qc-turnos-list select').forEach(s=>{ o[s.dataset.i]=s.value; }); setT(o); document.getElementById('qc-turnos-modal').classList.remove('open'); applyTurnos(); renderBanners();};
 document.getElementById('qc-turnos-close').onclick=()=>document.getElementById('qc-turnos-modal').classList.remove('open');
