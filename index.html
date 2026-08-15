@@ -196,20 +196,55 @@ document.getElementById('qc-backup-btn').onclick=()=>{
  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='que-comemos-backup-'+new Date().toISOString().slice(0,10)+'.json'; a.click();
 };
-function injectAll(){
- if(document.getElementById('qc-nr-fixed')) return true;
+function injectAll(force){
  const gen=[...document.querySelectorAll('button')].find(b=>/generar semana/i.test(b.textContent));
  if(!gen) return false;
- let container=gen.closest('div'); for(let i=0;i<4;i++){ if(!container) break; if(container.textContent.includes('Temporada') && container.offsetWidth>300) break; container=container.parentElement; }
- const target=container && container.offsetWidth>300? container : gen.parentElement;
- const bar=document.createElement('div'); bar.id='qc-nr-fixed'; bar.innerHTML=`<span>🚫 No repetir en:</span><button data-w="0">Off</button><button data-w="7">1 sem</button><button data-w="14">2 sem</button><button data-w="21">3 sem</button><span id="qc-nr-info"></span>`; target.parentNode.insertBefore(bar, target.nextSibling);
- const refreshNR=()=>{const w=getW(); bar.querySelectorAll('button').forEach(b=>b.classList.toggle('active', +b.dataset.w===w)); document.getElementById('qc-nr-info').textContent=w? 'Filtrando <'+w+'d' : 'Sin filtro';}; refreshNR(); bar.querySelectorAll('button').forEach(b=>b.onclick=()=>{setW(b.dataset.w);refreshNR();});
- if(!document.getElementById('qc-turnos-btn')){const btn=document.createElement('button'); btn.id='qc-turnos-btn'; btn.textContent='👩 Turnos'; btn.style.cssText='margin-left:8px;padding:8px 12px;border:1px solid #e7dcc9;background:#fff;color:#111827;font-weight:800;border-radius:10px;cursor:pointer'; btn.onclick=()=>{ buildModal(); document.getElementById('qc-turnos-modal').classList.add('open'); }; gen.parentNode.insertBefore(btn, gen.nextSibling);}
+ // Find container that has Temporada selector - more robust for mobile (no width check)
+ let container=gen.closest('div');
+ for(let i=0;i<6;i++){ if(!container) break; if(container.textContent.includes('Temporada') && container.textContent.includes('Generar semana')) break; container=container.parentElement; }
+ const target=container || gen.parentElement;
+
+ // ---- No repetir bar ----
+ let bar=document.getElementById('qc-nr-fixed');
+ if(!bar){
+  bar=document.createElement('div');
+  bar.id='qc-nr-fixed';
+  bar.innerHTML=`<span>🚫 No repetir en:</span><button data-w="0">Off</button><button data-w="7">1 sem</button><button data-w="14">2 sem</button><button data-w="21">3 sem</button><span id="qc-nr-info"></span>`;
+  // Insert after target, but ensure visible
+  if(target && target.parentNode) target.parentNode.insertBefore(bar, target.nextSibling);
+  else gen.parentNode.insertBefore(bar, gen.parentNode.firstChild);
+ }
+ const refreshNR=()=>{
+  const w=getW();
+  const info=document.getElementById('qc-nr-info');
+  bar.querySelectorAll('button').forEach(b=>b.classList.toggle('active', +b.dataset.w===w));
+  if(info) info.textContent=w? 'Filtrando <'+w+'d · chivato activo' : 'Sin filtro · solo chivato';
+ };
+ refreshNR();
+ bar.querySelectorAll('button').forEach(b=>{ if(!b._qc){ b._qc=true; b.onclick=()=>{setW(b.dataset.w);refreshNR();}; } });
+
+ // ---- Turnos btn ----
+ let tbtn=document.getElementById('qc-turnos-btn');
+ if(!tbtn){
+  tbtn=document.createElement('button');
+  tbtn.id='qc-turnos-btn'; tbtn.textContent='👩 Turnos';
+  tbtn.onclick=()=>{ buildModal(); document.getElementById('qc-turnos-modal').classList.add('open'); };
+  // On mobile, gen.parentNode may be flex-wrap, insert after gen with margin
+  try{
+    if(gen.parentNode){
+      gen.parentNode.insertBefore(tbtn, gen.nextSibling);
+      tbtn.style.marginLeft='8px';
+      tbtn.style.marginTop='6px';
+      tbtn.style.flexShrink='0';
+    }
+  }catch{}
+ }
  return true;
 }
 function buildModal(){const list=document.getElementById('qc-turnos-list'); const t=getT(); list.innerHTML=''; DIAS.forEach((d,i)=>{const row=document.createElement('div'); row.className='qc-turno-row'; row.innerHTML=`<label>${d}</label><select data-i="${i}">${TURNOS.map(v=>`<option value="${v}" ${t[i]===v?'selected':''}>${v}</option>`).join('')}</select>`; list.appendChild(row);});}
 let triesTools=0; const ivTools=setInterval(()=>{ triesTools++; if(initTools()||triesTools>50) clearInterval(ivTools); },600);
 let tries=0; const iv=setInterval(()=>{ tries++; if(injectAll()||tries>40) clearInterval(iv); },700);
+setInterval(()=>{ injectAll(true); },2000);
 document.getElementById('qc-turnos-save').onclick=()=>{const o={}; document.querySelectorAll('#qc-turnos-list select').forEach(s=>{ o[s.dataset.i]=s.value; }); setT(o); document.getElementById('qc-turnos-modal').classList.remove('open'); applyTurnos(); renderBanners();};
 document.getElementById('qc-turnos-close').onclick=()=>document.getElementById('qc-turnos-modal').classList.remove('open');
 document.getElementById('qc-turnos-modal').onclick=(e)=>{ if(e.target.id==='qc-turnos-modal') e.currentTarget.classList.remove('open'); };
