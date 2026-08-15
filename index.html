@@ -2008,67 +2008,82 @@ setInterval(()=>{ renderBanners(); },1000);
 </script>
 
 
-<script id="qc-fix-orden-v2">
+<script id="qc-fix-orden-v3">
 (function(){
-  function getGenAndRow(){
+  function getContext(){
     const gen=[...document.querySelectorAll('button')].find(b=>/generar semana/i.test(b.textContent));
     if(!gen) return null;
-    const row=gen.parentElement; // flex container with Temporada + Generar
-    return {gen, row};
+    // grid que contiene Temporada + Generar
+    let grid=gen.closest('div.grid');
+    if(!grid){
+      const grids=[...document.querySelectorAll('div.grid')].filter(g=>g.textContent.includes('Temporada'));
+      grid=grids[0]||null;
+    }
+    const row=gen.parentElement; // div.flex con Generar
+    return {gen, grid, row};
   }
-  function ensureFila2(){
+  function ensureFila2(grid){
     let fila2=document.getElementById('qc-fila2');
     if(fila2) return fila2;
-    const whiteCard=document.querySelector('div.bg-white.rounded-xl.border.p-4.space-y-4');
-    if(!whiteCard) return null;
-    const gridDiv=whiteCard.querySelector('div.grid.md\:grid-cols-2');
-    if(!gridDiv){ 
-      // fallback: buscar grid que contiene Temporada
-      const grids=[...document.querySelectorAll('div.grid')].filter(g=>g.textContent.includes('Temporada'));
-      if(grids[0]){ 
-        fila2=document.createElement('div'); fila2.id='qc-fila2'; grids[0].insertAdjacentElement('afterend', fila2); return fila2;
-      }
-      return null;
-    }
+    if(!grid) return null;
     fila2=document.createElement('div');
     fila2.id='qc-fila2';
     fila2.style.display='flex';
     fila2.style.gap='6px';
     fila2.style.marginTop='8px';
     fila2.style.flexWrap='nowrap';
-    gridDiv.insertAdjacentElement('afterend', fila2);
+    grid.insertAdjacentElement('afterend', fila2);
     return fila2;
   }
   function fixLayout(){
-    const ctx=getGenAndRow();
-    const fila2=ensureFila2();
-    if(!ctx || !fila2) return;
+    const ctx=getContext();
+    if(!ctx) return;
+    const {gen, grid, row}=ctx;
+    const fila2=ensureFila2(grid);
+    if(!fila2) return;
 
-    const {gen, row}=ctx;
+    // --- Forzar fila 1 en una sola línea también en móvil ---
+    if(grid){
+      grid.style.display='flex';
+      grid.style.flexWrap='nowrap';
+      grid.style.gap='6px';
+      grid.style.alignItems='flex-end';
+      // primer hijo = Temporada, segundo = contenedor de Generar
+      const children=[...grid.children];
+      if(children[0]){
+        children[0].style.flex='1 1 0';
+        children[0].style.minWidth='0';
+      }
+      if(children[1]){
+        children[1].style.display='flex';
+        children[1].style.gap='6px';
+        children[1].style.flexShrink='0';
+        children[1].style.alignItems='flex-end';
+        children[1].style.flexWrap='nowrap';
+      }
+    }
 
-    // 1) Turnos debe estar en la fila de arriba junto a Generar
+    // Turnos debe estar en row (junto a Generar), no en fila2
     const tbtn=document.getElementById('qc-turnos-btn');
     if(tbtn){
       if(tbtn.parentElement!==row){
-        // mover de fila2 a row
         try{ row.insertBefore(tbtn, gen.nextSibling); }catch(e){ row.appendChild(tbtn); }
       }
-      tbtn.style.marginLeft='6px';
+      tbtn.style.marginLeft='0';
       tbtn.style.marginTop='0';
       tbtn.style.flexShrink='0';
       tbtn.style.whiteSpace='nowrap';
+      tbtn.style.height='54px'; // misma altura que Generar
     }
 
-    // 2) Asegurar que en fila2 solo estén Rotar, Dieta, Compra (no Turnos)
-    const allowed=['qc-nr-btn','qc-eq-btn','qc-compra-btn'];
+    // Si Turnos se coló en fila2, sacarlo
     [...fila2.children].forEach(ch=>{
-      if(ch.id==='qc-turnos-btn'){
-        // ya movido arriba, si queda aquí sacarlo
-        if(ctx.row) ctx.row.insertBefore(ch, gen.nextSibling);
+      if(ch.id==='qc-turnos-btn' && row){
+        row.appendChild(ch);
       }
     });
 
-    // 3) Ocultar Preset original y barra vieja
+    // Ocultar Preset y barra vieja
     [...document.querySelectorAll('button')].forEach(b=>{
       if(b.textContent.trim()==='Preset' && !b.closest('#qc-eq-modal')){
         b.style.display='none';
@@ -2077,16 +2092,18 @@ setInterval(()=>{ renderBanners(); },1000);
     const oldBar=document.getElementById('qc-nr-fixed');
     if(oldBar) oldBar.style.display='none';
 
-    // 4) Orden fijo en fila2: Rotar -> Dieta -> Compra
+    // Orden fijo fila2: solo 3 botones
     const ORDER=['qc-nr-btn','qc-eq-btn','qc-compra-btn'];
     const childs=[...fila2.children].filter(el=>ORDER.includes(el.id));
-    const others=[...fila2.children].filter(el=>!ORDER.includes(el.id));
     childs.sort((a,b)=> ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
     childs.forEach(c=>fila2.appendChild(c));
-    others.forEach(c=>fila2.appendChild(c));
-
-    // 5) En la fila de arriba, asegurar orden: Temporada select, Generar, Turnos, (Preset oculto)
-    // No reordenamos Temporada, solo aseguramos Turnos después de Generar
+    // Eliminar cualquier otro que no sea de los 3 (por si se cuela Turnos)
+    [...fila2.children].forEach(ch=>{
+      if(ch.id && !ORDER.includes(ch.id) && ch.id!=='qc-fila2'){
+        // si es Turnos ya movido, ok. Si es otro, dejar pero al final
+        if(ch.id==='qc-turnos-btn' && row) row.appendChild(ch);
+      }
+    });
   }
 
   let tries=0;
@@ -2094,8 +2111,19 @@ setInterval(()=>{ renderBanners(); },1000);
     tries++;
     fixLayout();
     if(tries>200) clearInterval(iv);
-  },350);
-  setInterval(fixLayout, 800);
+  },300);
+  setInterval(fixLayout, 700);
+
+  // CSS extra para móvil
+  const style=document.createElement('style');
+  style.textContent=`
+    @media (max-width: 640px){
+      #qc-fila2 { gap:6px !important; }
+      #qc-fila2 button { flex:1 1 0 !important; font-size:11px !important; padding:0 6px !important; }
+      div.grid.md\:grid-cols-2 { display:flex !important; }
+    }
+  `;
+  document.head.appendChild(style);
 })();
 </script>
 
