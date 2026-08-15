@@ -2189,10 +2189,10 @@ setInterval(()=>{ renderBanners(); },1000);
   }
 
   // Persistente, nunca se detiene
-  setInterval(recreateButtons, 600);
+  setInterval(()=>{ recreateButtons(); hideOriginalEquilibrioPrecise(); }, 600);
   // También al inicio rápido
   let fast=0;
-  const fastIv=setInterval(()=>{ fast++; recreateButtons(); if(fast>20) clearInterval(fastIv); },300);
+  const fastIv=setInterval(()=>{ fast++; recreateButtons(); hideOriginalEquilibrioPrecise(); if(fast>20) clearInterval(fastIv); },300);
 })();
 </script>
 
