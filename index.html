@@ -581,4 +581,104 @@ setInterval(()=>{ renderBanners(); },1000);
 })();
 </script>
 
+
+<script>
+(function(){
+  const DIAS_FIX=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+  const TURNOS_FIX=['Mañana','Tarde','Guardia','Doblaje','Libre'];
+  
+  function buildTurnosRobusto(){
+    const list=document.getElementById('qc-turnos-list');
+    if(!list) return;
+    let t={};
+    try{ t=JSON.parse(localStorage.getItem('qc-turnos-semana')||'{}'); }catch(e){ t={}; }
+    list.innerHTML='';
+    DIAS_FIX.forEach((d,i)=>{
+      const row=document.createElement('div');
+      row.className='qc-turno-row';
+      const sel=document.createElement('select');
+      sel.setAttribute('data-i', i);
+      TURNOS_FIX.forEach(v=>{
+        const opt=document.createElement('option');
+        opt.value=v;
+        opt.textContent=v;
+        if(t[i]===v) opt.selected=true;
+        sel.appendChild(opt);
+      });
+      const label=document.createElement('label');
+      label.textContent=d;
+      row.appendChild(label);
+      row.appendChild(sel);
+      list.appendChild(row);
+    });
+  }
+  
+  function attachTurnos(){
+    const btn=document.getElementById('qc-turnos-btn');
+    const modal=document.getElementById('qc-turnos-modal');
+    const save=document.getElementById('qc-turnos-save');
+    const close=document.getElementById('qc-turnos-close');
+    if(!btn || !modal) return false;
+    
+    // Sobrescribir click para asegurar build robusto
+    btn.onclick = function(){
+      buildTurnosRobusto();
+      modal.classList.add('open');
+    };
+    
+    if(save && !save._fixed){
+      save._fixed=true;
+      save.onclick = function(){
+        const o={};
+        document.querySelectorAll('#qc-turnos-list select').forEach(s=>{
+          o[s.getAttribute('data-i')]=s.value;
+        });
+        try{ localStorage.setItem('qc-turnos-semana', JSON.stringify(o)); }catch(e){}
+        modal.classList.remove('open');
+        // Aplicar turnos si existe función
+        try{
+          if(typeof applyTurnos==='function') applyTurnos();
+          if(typeof renderBanners==='function') renderBanners();
+        }catch(e){}
+        // Recargar comensales si existe
+        try{
+          const base=JSON.parse(localStorage.getItem('que-comemos-expert-v2')||'{}').comensales||4;
+          let cd={};
+          try{ cd=JSON.parse(localStorage.getItem('qc-comensales-dia')||'{}'); }catch(e){}
+          DIAS_FIX.forEach((_,i)=>{
+            const turno=o[i];
+            if(turno==='Guardia') cd[i]={comida:Math.max(1,base-1),cena:Math.max(1,base-1)};
+            else if(turno==='Doblaje') cd[i]={comida:Math.max(1,base-1),cena:base};
+            else if(!cd[i]) cd[i]={comida:base,cena:base};
+          });
+          localStorage.setItem('qc-comensales-dia', JSON.stringify(cd));
+        }catch(e){}
+      };
+    }
+    
+    if(close && !close._fixed){
+      close._fixed=true;
+      close.onclick = ()=>modal.classList.remove('open');
+    }
+    
+    modal.onclick = (e)=>{
+      if(e.target.id==='qc-turnos-modal') modal.classList.remove('open');
+    };
+    
+    return true;
+  }
+  
+  // Intentar varias veces hasta que exista el botón
+  let tries=0;
+  const iv=setInterval(()=>{
+    tries++;
+    if(attachTurnos() || tries>50) clearInterval(iv);
+  },300);
+  
+  // También al cargar
+  setTimeout(attachTurnos, 500);
+  setTimeout(attachTurnos, 1500);
+})();
+</script>
+
 </body></html>
