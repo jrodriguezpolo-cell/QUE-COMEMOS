@@ -878,4 +878,252 @@ setInterval(()=>{ renderBanners(); },1000);
 })();
 </script>
 
+
+<style id="qc-eq-style-v2">
+  .qc-eq-original-hidden { display: none !important; }
+  #qc-eq-btn {
+    height: 44px;
+    padding: 0 14px;
+    border-radius: 12px;
+    border: 1px solid #e7dcc9;
+    background: #ffffff;
+    color: #111827;
+    font-weight: 800;
+    font-size: 13px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  #qc-eq-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(17,24,39,.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  #qc-eq-modal.open { display: flex; }
+  #qc-eq-box {
+    background: #fef7ed;
+    border: 1px solid #e7dcc9;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 420px;
+    padding: 18px;
+    box-shadow: 0 16px 40px rgba(0,0,0,.25);
+    max-height: 85vh;
+    overflow: auto;
+  }
+  #qc-eq-box h3 { font-weight: 900; font-size: 16px; margin: 0 0 12px 0; }
+  .qc-eq-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px dashed #e7dcc9;
+  }
+  .qc-eq-row label { font-weight: 800; font-size: 13px; text-transform: capitalize; }
+  .qc-eq-row input {
+    width: 80px;
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid #e7dcc9;
+    background: #fff;
+    font-weight: 800;
+    text-align: center;
+    font-size: 16px;
+  }
+</style>
+
+<div id="qc-eq-modal">
+  <div id="qc-eq-box">
+    <h3>⚖️ Equilibrio semanal</h3>
+    <p style="font-size:12px;opacity:.6;margin:0 0 12px 0">Nº raciones por grupo</p>
+    <div id="qc-eq-list"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button id="qc-eq-preset" style="flex:1;padding:10px;border-radius:999px;background:#fff;border:1px solid #e7dcc9;font-weight:800;font-size:13px">Preset Med</button>
+      <button id="qc-eq-save" style="flex:1;padding:10px;border-radius:999px;background:#111827;color:#fef7ed;border:1px solid #111827;font-weight:800">Guardar</button>
+    </div>
+    <button id="qc-eq-close" style="width:100%;margin-top:8px;padding:10px;border-radius:999px;background:#fff;color:#111827;border:1px solid #e7dcc9;font-weight:800">Cerrar</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const DEFAULT_EQ = {pescado:2, carne:2, legumbre:2, verdura:4, huevo:2, pastaArroz:2};
+  const LABELS = {pescado:'Pescado', carne:'Carne', legumbre:'Legumbre', verdura:'Verdura', huevo:'Huevo', pastaArroz:'Pasta/Arroz'};
+  
+  function getEquilibrio(){
+    try{
+      const raw=localStorage.getItem('que-comemos-expert-v2');
+      if(!raw) return {...DEFAULT_EQ};
+      const j=JSON.parse(raw);
+      return j.equilibrio || {...DEFAULT_EQ};
+    }catch(e){ return {...DEFAULT_EQ}; }
+  }
+  
+  function setEquilibrio(eq){
+    try{
+      const raw=localStorage.getItem('que-comemos-expert-v2');
+      let data=raw?JSON.parse(raw):{};
+      data.equilibrio=eq;
+      localStorage.setItem('que-comemos-expert-v2', JSON.stringify(data));
+      localStorage.setItem('que-comemos-expert-v1', JSON.stringify(data));
+    }catch(e){}
+  }
+  
+  function ensureFila2(){
+    let fila2=document.getElementById('qc-fila2');
+    if(fila2) return fila2;
+    const gen=[...document.querySelectorAll('button')].find(b=>/generar semana/i.test(b.textContent));
+    if(!gen) return null;
+    let gridParent=gen;
+    for(let i=0;i<8;i++){
+      if(!gridParent) break;
+      if(gridParent.querySelector && gridParent.querySelector('select') && gridParent.textContent.includes('Temporada')) {
+        // check if this is the grid containing temporada
+        // gridParent is the div.grid
+        break;
+      }
+      gridParent=gridParent.parentElement;
+    }
+    // gridParent should be the grid, its parent is the white card, but we want fila2 after the grid's parent? Actually after the card's first sections? We want after the grid that contains Temporada+Generar
+    // Find the card container: bg-white rounded-xl border p-4
+    let card = gridParent;
+    while(card && !card.className.includes('bg-white rounded-xl border p-4')){
+      card = card.parentElement;
+    }
+    // Instead, insert fila2 right after the grid (Temporada+Generar) inside the card, before equilibrio
+    const whiteCard = document.querySelector('div.bg-white.rounded-xl.border.p-4.space-y-4');
+    if(whiteCard){
+      // whiteCard children: [comensales div, grid div, equilibrio div]
+      // Insert fila2 after grid div
+      const gridDiv = whiteCard.querySelector('div.grid.md\:grid-cols-2');
+      if(gridDiv){
+        let fila2New=document.getElementById('qc-fila2');
+        if(!fila2New){
+          fila2New=document.createElement('div');
+          fila2New.id='qc-fila2';
+          fila2New.style.display='flex';
+          fila2New.style.gap='6px';
+          fila2New.style.marginTop='8px';
+          fila2New.style.flexWrap='nowrap';
+          gridDiv.insertAdjacentElement('afterend', fila2New);
+        }
+        return fila2New;
+      }
+    }
+    return fila2;
+  }
+  
+  function hideOriginalEquilibrioPrecise(){
+    // Buscar exactamente el label "Equilibrio semanal (nº raciones)"
+    const labels=[...document.querySelectorAll('div.font-bold')].filter(d=>d.textContent.includes('Equilibrio semanal'));
+    labels.forEach(lbl=>{
+      const container=lbl.parentElement; // div que contiene label + grid
+      if(container && !container.classList.contains('qc-eq-original-hidden')){
+        // Solo ocultar si tiene el grid de inputs dentro
+        if(container.querySelector('input[type="number"]')){
+          container.classList.add('qc-eq-original-hidden');
+          container.style.display='none';
+        }
+      }
+    });
+  }
+  
+  function buildEqModal(){
+    const list=document.getElementById('qc-eq-list');
+    if(!list) return;
+    const eq=getEquilibrio();
+    list.innerHTML='';
+    Object.keys(LABELS).forEach(k=>{
+      const row=document.createElement('div');
+      row.className='qc-eq-row';
+      row.innerHTML=`<label>${LABELS[k]}</label><input type="number" min="0" max="14" data-k="${k}" value="${eq[k]||0}">`;
+      list.appendChild(row);
+    });
+  }
+  
+  function createEqBtn(){
+    const fila2=ensureFila2();
+    if(!fila2) return false;
+    let btn=document.getElementById('qc-eq-btn');
+    if(!btn){
+      btn=document.createElement('button');
+      btn.id='qc-eq-btn';
+      fila2.appendChild(btn);
+    }
+    const eq=getEquilibrio();
+    const total=Object.values(eq).reduce((a,b)=>a+b,0);
+    btn.textContent=`⚖️ Equilibrio: ${total}`;
+    
+    if(!btn._fixed){
+      btn._fixed=true;
+      btn.onclick=()=>{
+        hideOriginalEquilibrioPrecise();
+        buildEqModal();
+        document.getElementById('qc-eq-modal')?.classList.add('open');
+      };
+    }
+    hideOriginalEquilibrioPrecise();
+    return true;
+  }
+  
+  function attachEqModal(){
+    const modal=document.getElementById('qc-eq-modal');
+    if(!modal) return;
+    const save=document.getElementById('qc-eq-save');
+    const close=document.getElementById('qc-eq-close');
+    const preset=document.getElementById('qc-eq-preset');
+    
+    if(save && !save._fixed){
+      save._fixed=true;
+      save.onclick=()=>{
+        const eq={};
+        modal.querySelectorAll('input[data-k]').forEach(inp=>{
+          eq[inp.dataset.k]=parseInt(inp.value)||0;
+        });
+        setEquilibrio(eq);
+        const btn=document.getElementById('qc-eq-btn');
+        if(btn){
+          const total=Object.values(eq).reduce((a,b)=>a+b,0);
+          btn.textContent=`⚖️ Equilibrio: ${total}`;
+        }
+        modal.classList.remove('open');
+        setTimeout(()=>location.reload(), 250);
+      };
+    }
+    if(preset && !preset._fixed){
+      preset._fixed=true;
+      preset.onclick=()=>{
+        const eq={...DEFAULT_EQ};
+        modal.querySelectorAll('input[data-k]').forEach(inp=>{
+          if(eq[inp.dataset.k]!==undefined) inp.value=eq[inp.dataset.k];
+        });
+      };
+    }
+    if(close && !close._fixed){
+      close._fixed=true;
+      close.onclick=()=>modal.classList.remove('open');
+    }
+    modal.onclick=(e)=>{
+      if(e.target.id==='qc-eq-modal') modal.classList.remove('open');
+    };
+  }
+  
+  let tries=0;
+  const iv=setInterval(()=>{
+    tries++;
+    createEqBtn();
+    attachEqModal();
+    hideOriginalEquilibrioPrecise();
+    if(tries>100) clearInterval(iv);
+  },400);
+})();
+</script>
+
 </body></html>
