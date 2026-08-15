@@ -649,7 +649,7 @@ setInterval(()=>{ renderBanners(); },1000);
             const turno=o[i];
             if(turno==='Guardia') cd[i]={comida:Math.max(1,base-1),cena:Math.max(1,base-1)};
             else if(turno==='Doblaje') cd[i]={comida:Math.max(1,base-1),cena:base};
-            else if(!cd[i]) cd[i]={comida:base,cena:base};
+            else cd[i]={comida:base,cena:base};
           });
           localStorage.setItem('qc-comensales-dia', JSON.stringify(cd));
         }catch(e){}
@@ -2008,18 +2008,64 @@ setInterval(()=>{ renderBanners(); },1000);
 </script>
 
 
-<script id="qc-fix-orden-v3">
+<style id="qc-fix-2filas-css">
+  /* En móvil, forzar la fila Temporada + Generar+Turnos en una sola línea */
+  @media (max-width: 768px){
+    div.bg-white.rounded-xl.border.p-4.space-y-4 > div.grid.md\:grid-cols-2 {
+      display:flex !important;
+      flex-wrap:nowrap !important;
+      gap:6px !important;
+      align-items:flex-end !important;
+    }
+    div.bg-white.rounded-xl.border.p-4.space-y-4 > div.grid.md\:grid-cols-2 > div:first-child {
+      flex:1 1 0 !important;
+      min-width:0 !important;
+    }
+    div.bg-white.rounded-xl.border.p-4.space-y-4 > div.grid.md\:grid-cols-2 > div:last-child {
+      display:flex !important;
+      gap:6px !important;
+      flex-shrink:0 !important;
+      flex-wrap:nowrap !important;
+    }
+    #qc-fila2 { flex-wrap:nowrap !important; overflow-x:auto !important; }
+    #qc-fila2 button { flex:1 1 0 !important; min-width:0 !important; font-size:11px !important; padding:0 6px !important; }
+  }
+</style>
+<script id="qc-fix-persistente">
 (function(){
-  function getContext(){
+  const DEFAULT_EQ={pescado:2, carne:2, legumbre:2, verdura:4, huevo:2, pastaArroz:2};
+  const PRESETS={
+    mediterraneo:{pescado:2, carne:2, legumbre:2, verdura:4, huevo:2, pastaArroz:2},
+    pescado:{pescado:3, carne:1, legumbre:2, verdura:4, huevo:1, pastaArroz:1},
+    vegetariano:{pescado:1, carne:0, legumbre:3, verdura:5, huevo:2, pastaArroz:1},
+    proteico:{pescado:2, carne:3, legumbre:1, verdura:3, huevo:3, pastaArroz:1}
+  };
+  const INFO={
+    mediterraneo:{icon:'🌊',label:'Med',full:'Mediterránea'},
+    pescado:{icon:'🐟',label:'Pescado',full:'Alta pescado'},
+    vegetariano:{icon:'🥬',label:'Veg',full:'Vegetariana'},
+    proteico:{icon:'💪',label:'Proteica',full:'Proteica'}
+  };
+  function getEq(){ try{ const raw=localStorage.getItem('que-comemos-expert-v2'); if(!raw) return {...DEFAULT_EQ}; const j=JSON.parse(raw); return j.equilibrio||{...DEFAULT_EQ}; }catch(e){return {...DEFAULT_EQ};} }
+  function getInfo(eq){
+    for(const k of Object.keys(PRESETS)){
+      const p=PRESETS[k]; let ok=true; for(const kk of Object.keys(p)){ if((eq[kk]||0)!==p[kk]){ok=false;break;} } if(ok) return {key:k,...INFO[k]};
+    }
+    const tot=Object.values(eq).reduce((a,b)=>a+b,0);
+    if(tot===12) return {key:'mediterraneo',icon:'🌊',label:'Med',full:'Mediterránea'};
+    return {key:'personalizada',icon:'🥗',label:'Pers',full:'Personalizada'};
+  }
+  function getW(){ try{return +(localStorage.getItem('qc-no-repeat-weeks')||0);}catch(e){return 0;} }
+
+  function getCtx(){
     const gen=[...document.querySelectorAll('button')].find(b=>/generar semana/i.test(b.textContent));
     if(!gen) return null;
-    // grid que contiene Temporada + Generar
     let grid=gen.closest('div.grid');
     if(!grid){
       const grids=[...document.querySelectorAll('div.grid')].filter(g=>g.textContent.includes('Temporada'));
       grid=grids[0]||null;
     }
-    const row=gen.parentElement; // div.flex con Generar
+    const row=gen.parentElement;
     return {gen, grid, row};
   }
   function ensureFila2(grid){
@@ -2035,55 +2081,97 @@ setInterval(()=>{ renderBanners(); },1000);
     grid.insertAdjacentElement('afterend', fila2);
     return fila2;
   }
-  function fixLayout(){
-    const ctx=getContext();
+
+  function recreateButtons(){
+    const ctx=getCtx();
     if(!ctx) return;
     const {gen, grid, row}=ctx;
     const fila2=ensureFila2(grid);
     if(!fila2) return;
 
-    // --- Forzar fila 1 en una sola línea también en móvil ---
-    if(grid){
-      grid.style.display='flex';
-      grid.style.flexWrap='nowrap';
-      grid.style.gap='6px';
-      grid.style.alignItems='flex-end';
-      // primer hijo = Temporada, segundo = contenedor de Generar
-      const children=[...grid.children];
-      if(children[0]){
-        children[0].style.flex='1 1 0';
-        children[0].style.minWidth='0';
-      }
-      if(children[1]){
-        children[1].style.display='flex';
-        children[1].style.gap='6px';
-        children[1].style.flexShrink='0';
-        children[1].style.alignItems='flex-end';
-        children[1].style.flexWrap='nowrap';
-      }
-    }
-
-    // Turnos debe estar en row (junto a Generar), no en fila2
-    const tbtn=document.getElementById('qc-turnos-btn');
-    if(tbtn){
+    // Turnos siempre en fila 1 junto a Generar
+    let tbtn=document.getElementById('qc-turnos-btn');
+    if(!tbtn){
+      tbtn=document.createElement('button');
+      tbtn.id='qc-turnos-btn';
+      tbtn.textContent='👩 Turnos';
+      tbtn.style.height='54px'; tbtn.style.padding='0 12px'; tbtn.style.borderRadius='12px'; tbtn.style.border='1px solid #e7dcc9'; tbtn.style.background='#fff'; tbtn.style.fontWeight='800'; tbtn.style.fontSize='13px';
+      tbtn.onclick=()=>{ document.getElementById('qc-turnos-modal')?.classList.add('open'); };
+      try{ row.insertBefore(tbtn, gen.nextSibling); }catch(e){ row.appendChild(tbtn); }
+    }else{
       if(tbtn.parentElement!==row){
         try{ row.insertBefore(tbtn, gen.nextSibling); }catch(e){ row.appendChild(tbtn); }
       }
-      tbtn.style.marginLeft='0';
-      tbtn.style.marginTop='0';
-      tbtn.style.flexShrink='0';
-      tbtn.style.whiteSpace='nowrap';
-      tbtn.style.height='54px'; // misma altura que Generar
     }
 
-    // Si Turnos se coló en fila2, sacarlo
-    [...fila2.children].forEach(ch=>{
-      if(ch.id==='qc-turnos-btn' && row){
-        row.appendChild(ch);
-      }
-    });
+    // Rotar
+    let nr=document.getElementById('qc-nr-btn');
+    if(!nr){
+      nr=document.createElement('button'); nr.id='qc-nr-btn'; nr.style.height='44px'; nr.style.padding='0 10px'; nr.style.borderRadius='12px'; nr.style.border='1px solid #e7dcc9'; nr.style.background='#fff'; nr.style.fontWeight='800'; nr.style.fontSize='12px';
+      nr.onclick=()=> document.getElementById('qc-nr-modal')?.classList.add('open');
+      fila2.appendChild(nr);
+    }
+    const w=getW(); const lab=w==0?'Off':w==7?'1 sem':w==14?'2 sem':'3 sem';
+    if(nr) nr.textContent=`🔄 Rotar: ${lab}`;
 
-    // Ocultar Preset y barra vieja
+    // Dieta
+    let eqBtn=document.getElementById('qc-eq-btn');
+    if(!eqBtn){
+      eqBtn=document.createElement('button'); eqBtn.id='qc-eq-btn'; eqBtn.style.height='44px'; eqBtn.style.padding='0 10px'; eqBtn.style.borderRadius='12px'; eqBtn.style.border='1px solid #e7dcc9'; eqBtn.style.background='#fff'; eqBtn.style.fontWeight='800'; eqBtn.style.fontSize='12px';
+      eqBtn.onclick=()=>{
+        const list=document.getElementById('qc-eq-list');
+        if(list){
+          list.innerHTML='';
+          const LABELS={pescado:'Pescado', carne:'Carne', legumbre:'Legumbre', verdura:'Verdura', huevo:'Huevo', pastaArroz:'Pasta/Arroz'};
+          const cur=getEq();
+          Object.keys(LABELS).forEach(k=>{
+            const rowDiv=document.createElement('div'); rowDiv.className='qc-eq-row';
+            rowDiv.innerHTML=`<label>${LABELS[k]}</label><input type="number" min="0" max="14" data-k="${k}" value="${cur[k]||0}">`;
+            list.appendChild(rowDiv);
+          });
+        }
+        const sel=document.getElementById('qc-eq-preset-select');
+        if(sel){
+          const curInfo=getInfo(getEq());
+          if(curInfo.key && sel.querySelector(`option[value="${curInfo.key}"]`)) sel.value=curInfo.key; else sel.value='';
+        }
+        document.getElementById('qc-eq-modal')?.classList.add('open');
+      };
+      fila2.appendChild(eqBtn);
+    }
+    if(eqBtn){
+      const eq=getEq(); const info=getInfo(eq); const tot=Object.values(eq).reduce((a,b)=>a+b,0);
+      eqBtn.textContent=`${info.icon} Dieta: ${info.label} (${tot})`;
+      eqBtn.title=`Dieta ${info.full} - ${tot} raciones`;
+    }
+
+    // Compra
+    let cb=document.getElementById('qc-compra-btn');
+    if(!cb){
+      cb=document.createElement('button'); cb.id='qc-compra-btn'; cb.textContent='🛒 Compra'; cb.style.height='44px'; cb.style.padding='0 10px'; cb.style.borderRadius='12px'; cb.style.border='1px solid #e7dcc9'; cb.style.background='#fff'; cb.style.fontWeight='800'; cb.style.fontSize='12px';
+      cb.onclick=()=>{
+        const modal=document.getElementById('qc-compra-modal');
+        const list=document.getElementById('qc-compra-list');
+        const jump=document.getElementById('qc-pasillo-jump');
+        if(!list||!modal) return;
+        // ... lógica compra simplificada, reutiliza la del archivo base si existe, si no calcula
+        if(window.qcComputeAndRenderCompra){
+          window.qcComputeAndRenderCompra();
+        }else{
+          // fallback básico
+          modal.classList.add('open');
+        }
+      };
+      fila2.appendChild(cb);
+    }
+
+    // Orden fijo fila2: Rotar, Dieta, Compra
+    const ORDER=['qc-nr-btn','qc-eq-btn','qc-compra-btn'];
+    const childs=[...fila2.children].filter(el=>ORDER.includes(el.id));
+    childs.sort((a,b)=> ORDER.indexOf(a.id)-ORDER.indexOf(b.id));
+    childs.forEach(c=>fila2.appendChild(c));
+
+    // Ocultar Preset original
     [...document.querySelectorAll('button')].forEach(b=>{
       if(b.textContent.trim()==='Preset' && !b.closest('#qc-eq-modal')){
         b.style.display='none';
@@ -2092,38 +2180,19 @@ setInterval(()=>{ renderBanners(); },1000);
     const oldBar=document.getElementById('qc-nr-fixed');
     if(oldBar) oldBar.style.display='none';
 
-    // Orden fijo fila2: solo 3 botones
-    const ORDER=['qc-nr-btn','qc-eq-btn','qc-compra-btn'];
-    const childs=[...fila2.children].filter(el=>ORDER.includes(el.id));
-    childs.sort((a,b)=> ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
-    childs.forEach(c=>fila2.appendChild(c));
-    // Eliminar cualquier otro que no sea de los 3 (por si se cuela Turnos)
+    // Asegurar que Turnos no está en fila2
     [...fila2.children].forEach(ch=>{
-      if(ch.id && !ORDER.includes(ch.id) && ch.id!=='qc-fila2'){
-        // si es Turnos ya movido, ok. Si es otro, dejar pero al final
-        if(ch.id==='qc-turnos-btn' && row) row.appendChild(ch);
+      if(ch.id==='qc-turnos-btn'){
+        try{ row.insertBefore(ch, gen.nextSibling); }catch(e){}
       }
     });
   }
 
-  let tries=0;
-  const iv=setInterval(()=>{
-    tries++;
-    fixLayout();
-    if(tries>200) clearInterval(iv);
-  },300);
-  setInterval(fixLayout, 700);
-
-  // CSS extra para móvil
-  const style=document.createElement('style');
-  style.textContent=`
-    @media (max-width: 640px){
-      #qc-fila2 { gap:6px !important; }
-      #qc-fila2 button { flex:1 1 0 !important; font-size:11px !important; padding:0 6px !important; }
-      div.grid.md\:grid-cols-2 { display:flex !important; }
-    }
-  `;
-  document.head.appendChild(style);
+  // Persistente, nunca se detiene
+  setInterval(recreateButtons, 600);
+  // También al inicio rápido
+  let fast=0;
+  const fastIv=setInterval(()=>{ fast++; recreateButtons(); if(fast>20) clearInterval(fastIv); },300);
 })();
 </script>
 
