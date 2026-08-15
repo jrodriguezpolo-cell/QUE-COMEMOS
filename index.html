@@ -262,6 +262,7 @@ function injectAll(force){
   tbtn=document.createElement('button');
   tbtn.id='qc-turnos-btn'; tbtn.textContent='👩 Turnos';
   tbtn.onclick=()=>{ buildModal(); document.getElementById('qc-turnos-modal').classList.add('open'); };
+  try{ orderFila2(); }catch(e){}
   // On mobile, gen.parentNode may be flex-wrap, insert after gen with margin
   try{
     if(gen.parentNode){
@@ -1029,6 +1030,40 @@ setInterval(()=>{ renderBanners(); },1000);
     return fila2;
   }
   
+
+
+  window.qcOrderFila2 = function(){
+    const fila2 = document.getElementById('qc-fila2');
+    if(!fila2) return;
+    const ORDER = ['qc-nr-btn','qc-rotar-btn','qc-nr-fixed','qc-turnos-btn','qc-eq-btn','qc-compra-btn'];
+    const children = [...fila2.children];
+    children.sort((a,b)=>{
+      const ia = ORDER.indexOf(a.id);
+      const ib = ORDER.indexOf(b.id);
+      const va = ia===-1?999:ia;
+      const vb = ib===-1?999:ib;
+      return va - vb;
+    });
+    children.forEach(ch=>fila2.appendChild(ch));
+  };
+  function orderFila2(){ try{ return window.qcOrderFila2(); }catch(e){} }
+
+  function _dummy(){
+    const fila2 = document.getElementById('qc-fila2');
+    if(!fila2) return;
+    const ORDER = ['qc-nr-btn','qc-rotar-btn','qc-nr-fixed','qc-turnos-btn','qc-eq-btn','qc-compra-btn'];
+    // Obtener hijos
+    const children = [...fila2.children];
+    children.sort((a,b)=>{
+      const ia = ORDER.indexOf(a.id);
+      const ib = ORDER.indexOf(b.id);
+      const va = ia===-1?999:ia;
+      const vb = ib===-1?999:ib;
+      return va - vb;
+    });
+    children.forEach(ch=>fila2.appendChild(ch));
+  }
+
   function hideOriginalEquilibrioPrecise(){
     // Buscar exactamente el label "Equilibrio semanal (nº raciones)"
     const labels=[...document.querySelectorAll('div.font-bold')].filter(d=>d.textContent.includes('Equilibrio semanal'));
@@ -1101,6 +1136,7 @@ setInterval(()=>{ renderBanners(); },1000);
       btn.style.gap='6px';
       fila2.appendChild(btn);
     }
+    orderFila2();
     const eq=getEquilibrio();
     const info=getDietaInfo(eq);
     const total=Object.values(eq).reduce((a,b)=>a+b,0);
@@ -1227,8 +1263,10 @@ setInterval(()=>{ renderBanners(); },1000);
     attachEqModal();
     hideOriginalEquilibrioPrecise();
     hidePresetFromMenu();
+    try{ window.qcOrderFila2(); }catch(e){}
     if(tries>100) clearInterval(iv);
   },400);
+  setInterval(()=>{ try{ window.qcOrderFila2(); }catch(e){} }, 800);
 })();
 </script>
 
@@ -1586,6 +1624,7 @@ setInterval(()=>{ renderBanners(); },1000);
       btn.textContent='🛒 Compra';
       fila2.appendChild(btn);
     }
+    orderFila2();
     const items=computeCompra();
     btn.textContent=`🛒 Compra: ${items.length}`;
     
