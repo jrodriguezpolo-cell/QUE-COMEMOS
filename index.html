@@ -430,6 +430,131 @@ setInterval(()=>{ renderBanners(); },1000);
   };
 })();
 
+
+// FIX LISTA COMPRA LIVE - sin re-render visual raro
+(function(){
+  function qcCalcLista(){
+    try{
+      const store=JSON.parse(localStorage.getItem('que-comemos-expert-v2')||localStorage.getItem('que-comemos-expert-v1')||'{}');
+      const menu=store.menu||[];
+      const recetas=store.recetas||[];
+      const comensales=store.comensales||4;
+      const turnos=JSON.parse(localStorage.getItem('qc-turnos-semana')||'{}');
+      const findRec=(id)=>recetas.find(r=>r.id===id);
+      const map=new Map();
+      menu.forEach((dia,di)=>{
+        [[dia.comidaId,dia.acompComidaId],[dia.cenaId,dia.acompCenaId]].forEach((arr,ti)=>{
+          const tipo=ti===0?'comida':'cena';
+          arr.forEach(id=>{
+            if(!id) return;
+            const rec=findRec(id); if(!rec) return;
+            let com=comensales;
+            const turno=turnos[di];
+            if(turno==='Guardia') com=Math.max(1,comensales-1);
+            else if(turno==='Doblaje' && tipo==='comida') com=Math.max(1,comensales-1);
+            rec.ing.forEach(ing=>{
+              const key=ing.n.toLowerCase()+'|'+ing.u;
+              const tot=ing.c*com;
+              const ex=map.get(key);
+              if(ex) map.set(key,{...ex,total:ex.total+tot});
+              else map.set(key,{n:ing.n,total:tot,u:ing.u});
+            });
+          });
+        });
+      });
+      return Array.from(map.values()).sort((a,b)=>a.n.localeCompare(b.n));
+    }catch(e){ console.error(e); return []; }
+  }
+
+  function qcUpdateListaDOM(){
+    const lista=qcCalcLista();
+    // Buscar contenedor de lista compra: div con "Lista compra agrupada"
+    const titles=[...document.querySelectorAll('div')].filter(d=>d.textContent.includes('Lista compra agrupada'));
+    titles.forEach(title=>{
+      const grid=title.nextElementSibling;
+      if(!grid) return;
+      // grid contiene labels
+      const labels=[...grid.querySelectorAll('label')];
+      labels.forEach(label=>{
+        const nameDiv=label.querySelector('div.flex-1');
+        if(!nameDiv) return;
+        const name=nameDiv.textContent.trim().toLowerCase();
+        const item=lista.find(it=>it.n.toLowerCase()===name);
+        if(item){
+          const qtyDiv=label.querySelector('div.font-bold.bg-\[\#fef7ed\]');
+          if(qtyDiv){
+            qtyDiv.textContent=(Math.round(item.total*10)/10)+' '+item.u;
+          } else {
+            // fallback: buscar cualquier div con numero
+            const divs=[...label.querySelectorAll('div')];
+            const q=divs.find(d=>/\d/.test(d.textContent) && d.textContent.includes(item.u));
+            if(q) q.textContent=(Math.round(item.total*10)/10)+' '+item.u;
+          }
+        }
+      });
+    });
+    // Tambien actualizar titulo x comensales si cambia?
+    titles.forEach(t=>{
+      const m=t.textContent.match(/Lista compra agrupada x (\d+)/);
+      if(m){
+        const store=JSON.parse(localStorage.getItem('que-comemos-expert-v2')||'{}');
+        const com=store.comensales||4;
+        if(+m[1]!==com){
+          t.textContent=t.textContent.replace(/x \d+/, 'x '+com);
+        }
+      }
+    });
+  }
+
+  window.qcUpdateListaDOM=qcUpdateListaDOM;
+
+  // Sobrescribir guardado de turnos para no hacer reload
+  const saveBtn=document.getElementById('qc-turnos-save');
+  if(saveBtn){
+    const clone=saveBtn.cloneNode(true);
+    saveBtn.parentNode.replaceChild(clone, saveBtn);
+    clone.onclick=()=>{
+      const o={};
+      document.querySelectorAll('#qc-turnos-list select').forEach(s=>{ o[s.dataset.i]=s.value; });
+      localStorage.setItem('qc-turnos-semana', JSON.stringify(o));
+      document.getElementById('qc-turnos-modal').classList.remove('open');
+      try{
+        const base=JSON.parse(localStorage.getItem('que-comemos-expert-v2')||localStorage.getItem('que-comemos-expert-v1')||'{}').comensales||4;
+        const cd={};
+        const DIAS=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+        DIAS.forEach((_,i)=>{
+          const turno=o[i];
+          if(turno==='Guardia') cd[i]={comida:Math.max(1,base-1),cena:Math.max(1,base-1)};
+          else if(turno==='Doblaje') cd[i]={comida:Math.max(1,base-1),cena:base};
+          else cd[i]={comida:base,cena:base};
+        });
+        localStorage.setItem('qc-comensales-dia', JSON.stringify(cd));
+      }catch{}
+      // Actualizar banners y lista sin reload
+      if(window.renderBanners) try{ renderBanners(); }catch{}
+      // Pequeño delay para que DOM de banners se actualice, luego lista
+      setTimeout(()=>{
+        qcUpdateListaDOM();
+        // Tambien forzar que React recalcule Wr en proximo render sin recargar pagina: disparar evento storage
+        window.dispatchEvent(new Event('qc-lista-updated'));
+      }, 100);
+    };
+  }
+
+  // Tambien cuando cambia comensales generales, actualizar lista
+  let lastCom=0;
+  setInterval(()=>{
+    try{
+      const store=JSON.parse(localStorage.getItem('que-comemos-expert-v2')||'{}');
+      const com=store.comensales||4;
+      if(com!==lastCom){
+        lastCom=com;
+        qcUpdateListaDOM();
+      }
+    }catch{}
+  }, 1000);
+})();
+
 })();
 </script>
 
