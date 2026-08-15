@@ -242,7 +242,7 @@ function injectAll(force){
  if(!bar){
   bar=document.createElement('div');
   bar.id='qc-nr-fixed';
-  bar.innerHTML=`<span>🚫 No repetir en:</span><button data-w="0">Off</button><button data-w="7">1 sem</button><button data-w="14">2 sem</button><button data-w="21">3 sem</button><span id="qc-nr-info"></span>`;
+  bar.innerHTML=`<span>🔄 Rotar en:</span><button data-w="0">Off</button><button data-w="7">1 sem</button><button data-w="14">2 sem</button><button data-w="21">3 sem</button><span id="qc-nr-info"></span>`;
   // Insert after target, but ensure visible
   if(target && target.parentNode) target.parentNode.insertBefore(bar, target.nextSibling);
   else gen.parentNode.insertBefore(bar, gen.parentNode.firstChild);
@@ -751,7 +751,7 @@ setInterval(()=>{ renderBanners(); },1000);
 
 <div id="qc-nr-modal">
   <div id="qc-nr-box">
-    <h3>🚫 No repetir</h3>
+    <h3>🔄 Rotar</h3>
     <p style="font-size:12px;opacity:.6;margin:0 0 12px 0">Evita repetir platos recientes</p>
     <button class="qc-nr-opt" data-w="0"><span>Off</span><span id="qc-nr-check-0">○</span></button>
     <button class="qc-nr-opt" data-w="7"><span>1 semana</span><span id="qc-nr-check-7">○</span></button>
@@ -801,7 +801,7 @@ setInterval(()=>{ renderBanners(); },1000);
     }
     const w=getW();
     const label = w==0?'Off': w==7?'1 sem': w==14?'2 sem':'3 sem';
-    btn.textContent = `🚫 No repetir: ${label}`;
+    btn.textContent = `🔄 Rotar: ${label}`;
     
     if(!btn._fixed){
       btn._fixed=true;
@@ -840,7 +840,7 @@ setInterval(()=>{ renderBanners(); },1000);
         if(btn){
           const w=getW();
           const label = w==0?'Off': w==7?'1 sem': w==14?'2 sem':'3 sem';
-          btn.textContent = `🚫 No repetir: ${label}`;
+          btn.textContent = `🔄 Rotar: ${label}`;
         }
         modal.querySelectorAll('.qc-nr-opt').forEach(x=>{
           const active = +x.dataset.w===getW();
@@ -1123,6 +1123,346 @@ setInterval(()=>{ renderBanners(); },1000);
     hideOriginalEquilibrioPrecise();
     if(tries>100) clearInterval(iv);
   },400);
+})();
+</script>
+
+
+<style id="qc-compra-style">
+  #qc-fila2 {
+    display: flex !important;
+    gap: 6px !important;
+    margin-top: 8px !important;
+    flex-wrap: nowrap !important;
+  }
+  #qc-fila2 button {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    justify-content: center !important;
+    padding: 0 8px !important;
+    font-size: 12px !important;
+  }
+  #qc-compra-btn {
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid #e7dcc9;
+    background: #ffffff;
+    color: #111827;
+    font-weight: 800;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+  #qc-compra-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(17,24,39,.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  #qc-compra-modal.open { display: flex; }
+  #qc-compra-box {
+    background: #fef7ed;
+    border: 1px solid #e7dcc9;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 500px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 16px 40px rgba(0,0,0,.25);
+  }
+  #qc-compra-header {
+    padding: 16px 18px;
+    border-bottom: 1px solid #e7dcc9;
+    font-weight: 900;
+    font-size: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  #qc-compra-list {
+    flex: 1;
+    overflow: auto;
+    padding: 12px;
+  }
+  .qc-compra-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid #e7dcc9;
+    background: #fff;
+    margin-bottom: 8px;
+  }
+  .qc-compra-item.checked {
+    background: #fef7ed;
+    opacity: 0.6;
+  }
+  .qc-compra-item input[type="checkbox"] {
+    width: 28px;
+    height: 28px;
+    accent-color: #ff7a1a;
+  }
+  .qc-compra-item .qc-compra-name {
+    flex: 1;
+    font-weight: 800;
+    font-size: 14px;
+  }
+  .qc-compra-item.checked .qc-compra-name {
+    text-decoration: line-through;
+  }
+  .qc-compra-qty {
+    font-weight: 800;
+    font-size: 13px;
+    background: #fef7ed;
+    border: 1px solid #e7dcc9;
+    padding: 4px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  #qc-compra-footer {
+    padding: 12px;
+    border-top: 1px solid #e7dcc9;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    background: #fff;
+  }
+</style>
+
+<div id="qc-compra-modal">
+  <div id="qc-compra-box">
+    <div id="qc-compra-header">
+      <span>🛒 Lista compra</span>
+      <button id="qc-compra-close-x" style="width:32px;height:32px;border-radius:999px;background:#fff;border:1px solid #e7dcc9;font-weight:900">✕</button>
+    </div>
+    <div id="qc-compra-list"></div>
+    <div id="qc-compra-footer">
+      <a id="qc-compra-wa" href="#" target="_blank" style="height:48px;display:flex;align-items:center;justify-content:center;background:#25D366;color:#fff;border-radius:12px;font-weight:800;text-decoration:none">WhatsApp</a>
+      <button id="qc-compra-close" style="height:48px;background:#fff;border:1px solid #e7dcc9;border-radius:12px;font-weight:800">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  function getData(){
+    try{
+      const raw=localStorage.getItem('que-comemos-expert-v2')||localStorage.getItem('que-comemos-expert-v1');
+      if(!raw) return null;
+      return JSON.parse(raw);
+    }catch(e){ return null; }
+  }
+  
+  function getTurnos(){
+    try{ return JSON.parse(localStorage.getItem('qc-turnos-semana')||'{}'); }catch(e){ return {}; }
+  }
+  
+  function getCompraCheck(){
+    try{
+      const d=getData();
+      return d?.compraCheck||{};
+    }catch(e){ return {}; }
+  }
+  
+  function setCompraCheck(check){
+    try{
+      const raw=localStorage.getItem('que-comemos-expert-v2');
+      let data=raw?JSON.parse(raw):{};
+      data.compraCheck=check;
+      localStorage.setItem('que-comemos-expert-v2', JSON.stringify(data));
+      localStorage.setItem('que-comemos-expert-v1', JSON.stringify(data));
+    }catch(e){}
+  }
+  
+  function computeCompra(){
+    const data=getData();
+    if(!data) return [];
+    const recetas=data.recetas||[];
+    const menu=data.menu||[];
+    const base=data.comensales||2;
+    const turnos=getTurnos();
+    const byId={};
+    recetas.forEach(r=>byId[r.id]=r);
+    const map=new Map();
+    menu.forEach((dia, di)=>{
+      const tipos=[{id:dia.comidaId, tipo:'comida'}, {id:dia.acompComidaId, tipo:'comida'}, {id:dia.cenaId, tipo:'cena'}, {id:dia.acompCenaId, tipo:'cena'}];
+      tipos.forEach(t=>{
+        if(!t.id) return;
+        const rec=byId[t.id];
+        if(!rec || !rec.ing) return;
+        let com=base;
+        try{
+          const turno=turnos[di];
+          if(turno==='Guardia') com=Math.max(1, base-1);
+          else if(turno==='Doblaje' && t.tipo==='comida') com=Math.max(1, base-1);
+        }catch(e){}
+        rec.ing.forEach(ing=>{
+          if(!ing.n) return;
+          const key=ing.n.toLowerCase()+'|'+ing.u;
+          const total=ing.c*com;
+          const existing=map.get(key);
+          if(existing){
+            existing.total+=total;
+          }else{
+            map.set(key, {n:ing.n, u:ing.u, total:total});
+          }
+        });
+      });
+    });
+    return Array.from(map.values()).sort((a,b)=>a.n.localeCompare(b.n));
+  }
+  
+  function buildCompraWA(items){
+    const data=getData();
+    const com=data?.comensales||2;
+    let txt=`🛒 QUE COMEMOS - ${com} comensales\n\n`;
+    if(data?.menu){
+      data.menu.forEach(d=>{
+        const byId={}; (data.recetas||[]).forEach(r=>byId[r.id]=r);
+        const comida=byId[d.comidaId]?.nombre||'-';
+        const cena=byId[d.cenaId]?.nombre||'-';
+        txt+=`${d.dia}: ${comida} | ${cena}\n`;
+      });
+    }
+    txt+=`\n🛒 Compra:\n`;
+    items.forEach(it=>{
+      txt+=`- ${it.n}: ${Math.round(it.total*10)/10} ${it.u}\n`;
+    });
+    return encodeURIComponent(txt);
+  }
+  
+  function renderCompraList(){
+    const list=document.getElementById('qc-compra-list');
+    const wa=document.getElementById('qc-compra-wa');
+    if(!list) return;
+    const items=computeCompra();
+    const check=getCompraCheck();
+    
+    if(items.length===0){
+      list.innerHTML='<div style="opacity:.6;font-size:14px;padding:12px">Genera menú para ver la compra.</div>';
+      if(wa) wa.href='#';
+      return;
+    }
+    
+    list.innerHTML='';
+    items.forEach(it=>{
+      const key=it.n+'|'+it.u;
+      const isChecked=!!check[key];
+      const row=document.createElement('label');
+      row.className='qc-compra-item '+(isChecked?'checked':'');
+      row.innerHTML=`<input type="checkbox" ${isChecked?'checked':''}><div class="qc-compra-name">${it.n}</div><div class="qc-compra-qty">${Math.round(it.total*10)/10} ${it.u}</div>`;
+      const cb=row.querySelector('input');
+      cb.onchange=(e)=>{
+        const c=getCompraCheck();
+        c[key]=e.target.checked;
+        setCompraCheck(c);
+        row.classList.toggle('checked', e.target.checked);
+      };
+      list.appendChild(row);
+    });
+    
+    if(wa){
+      wa.href=`https://wa.me/?text=${buildCompraWA(items)}`;
+    }
+  }
+  
+  function ensureFila2(){
+    return document.getElementById('qc-fila2');
+  }
+  
+  function hideOriginalCompra(){
+    const all=[...document.querySelectorAll('div.font-extrabold')].filter(d=>d.textContent.includes('Lista compra agrupada'));
+    all.forEach(lbl=>{
+      const container=lbl.parentElement;
+      if(container && !container.classList.contains('qc-compra-hidden')){
+        container.classList.add('qc-compra-hidden');
+        container.style.display='none';
+      }
+    });
+  }
+  
+  function createCompraBtn(){
+    const fila2=ensureFila2();
+    if(!fila2) return false;
+    let btn=document.getElementById('qc-compra-btn');
+    if(!btn){
+      btn=document.createElement('button');
+      btn.id='qc-compra-btn';
+      btn.textContent='🛒 Compra';
+      fila2.appendChild(btn);
+    }
+    const items=computeCompra();
+    btn.textContent=`🛒 Compra: ${items.length}`;
+    
+    if(!btn._fixed){
+      btn._fixed=true;
+      btn.onclick=()=>{
+        hideOriginalCompra();
+        renderCompraList();
+        document.getElementById('qc-compra-modal')?.classList.add('open');
+      };
+    }
+    hideOriginalCompra();
+    return true;
+  }
+  
+  function attachCompraModal(){
+    const modal=document.getElementById('qc-compra-modal');
+    if(!modal) return;
+    const close=document.getElementById('qc-compra-close');
+    const closeX=document.getElementById('qc-compra-close-x');
+    if(close && !close._fixed){
+      close._fixed=true;
+      close.onclick=()=>modal.classList.remove('open');
+    }
+    if(closeX && !closeX._fixed){
+      closeX._fixed=true;
+      closeX.onclick=()=>modal.classList.remove('open');
+    }
+    modal.onclick=(e)=>{
+      if(e.target.id==='qc-compra-modal') modal.classList.remove('open');
+    };
+  }
+  
+  // Ajustar textos de botones existentes para que sean más cortos en móvil
+  function shortenButtons(){
+    const nrBtn=document.getElementById('qc-nr-btn');
+    if(nrBtn){
+      // Ya es Rotar
+      const txt=nrBtn.textContent;
+      if(txt.includes('No repetir')) nrBtn.textContent=txt.replace('No repetir','Rotar').replace('🚫','🔄');
+      // Acortar "1 semana" a "1 sem" si existe
+      if(nrBtn.textContent.length>14 && window.innerWidth<400){
+        nrBtn.textContent=nrBtn.textContent.replace('semana','sem').replace('semanas','sem');
+      }
+    }
+    const eqBtn=document.getElementById('qc-eq-btn');
+    if(eqBtn && eqBtn.textContent.includes('Equilibrio:')){
+      if(window.innerWidth<400){
+        eqBtn.textContent=eqBtn.textContent.replace('Equilibrio','Eq.');
+      }
+    }
+  }
+  
+  let tries=0;
+  const iv=setInterval(()=>{
+    tries++;
+    createCompraBtn();
+    attachCompraModal();
+    hideOriginalCompra();
+    shortenButtons();
+    if(tries>100) clearInterval(iv);
+  },400);
+  
+  setTimeout(()=>{createCompraBtn(); attachCompraModal();},300);
 })();
 </script>
 
