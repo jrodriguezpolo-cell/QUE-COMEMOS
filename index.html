@@ -2196,4 +2196,171 @@ setInterval(()=>{ renderBanners(); },1000);
 })();
 </script>
 
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style id="qc-whatsapp-style">
+  #qc-wa-btn {
+    height:54px; width:54px; border-radius:12px; border:1px solid #25D366; background:#25D366; color:#fff;
+    display:inline-flex; align-items:center; justify-content:center; font-size:22px; cursor:pointer;
+  }
+  #qc-wa-btn:hover { background:#128C7E; }
+</style>
+<script id="qc-whatsapp-share">
+(function(){
+  function getRecetaActual(){
+    // Intentar obtener receta desde el modal abierto
+    // Buscar en DOM el título de receta detalle - el que está en el dialog
+    const dialogs=[...document.querySelectorAll('div[role="dialog"]')];
+    let recetaData=null;
+    // Buscar en localStorage la receta que se está viendo? No tenemos ID directo, parseamos DOM
+    return dialogs;
+  }
+
+  function buildTextoRecetaParaWA(){
+    // Buscar modal de receta
+    const modal=document.querySelector('div[role="dialog"]');
+    if(!modal) return null;
+    const nombreEl=modal.querySelector('div.font-extrabold.text-\[18px\], div.font-extrabold.text-\[20px\], h2');
+    let nombre=nombreEl?nombreEl.textContent.trim():'Receta';
+    // Ingredientes
+    const ingEls=[...modal.querySelectorAll('div.flex.justify-between.bg-\[\#fef7ed\]')];
+    let ingredientes=ingEls.map(el=>{
+      const spans=[...el.querySelectorAll('span')];
+      const n=spans[0]?.textContent||'';
+      const c=spans[1]?.textContent||'';
+      return `${n} - ${c}`;
+    });
+    // Pasos
+    const pasosEls=[...modal.querySelectorAll('ol li')];
+    let pasos=pasosEls.map((li,i)=> `${i+1}. ${li.textContent.replace(/^\d+/, '').trim()}`);
+
+    // Comensales
+    let comensales=2;
+    try{ comensales=window.qcGetComensales ? window.qcGetComensales() : 2; }catch(e){}
+
+    let texto=`*${nombre}* - ${comensales} comensales\n\n*Ingredientes:*\n${ingredientes.join('\n')}\n\n*Pasos:*\n${pasos.join('\n')}\n\n_Generado con QUE COMEMOS_`;
+    return {nombre, ingredientes, pasos, comensales, texto};
+  }
+
+  function generarPDFBonito(){
+    const data=buildTextoRecetaParaWA();
+    if(!data) return null;
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({unit:'mm', format:'a4'});
+    const pageW=doc.internal.pageSize.getWidth();
+    const margin=15;
+    let y=15;
+
+    // Header
+    doc.setFillColor(254,247,237);
+    doc.rect(0,0,pageW,20,'F');
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(18);
+    doc.setTextColor(17,24,39);
+    doc.text('QUE COMEMOS', margin, 12);
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica','bold');
+    y=28;
+    doc.text(data.nombre, margin, y);
+    y+=8;
+    doc.setFontSize(11);
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(80,80,80);
+    doc.text(`${data.comensales} comensales`, margin, y);
+    y+=8;
+
+    // Ingredientes
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(12);
+    doc.setTextColor(17,24,39);
+    doc.text('Ingredientes:', margin, y);
+    y+=6;
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(10);
+    data.ingredientes.forEach(ing=>{
+      if(y>270){ doc.addPage(); y=15; }
+      // Cortar texto largo
+      const lines=doc.splitTextToSize(ing, pageW - margin*2);
+      lines.forEach(line=>{ doc.text(line, margin, y); y+=5; });
+    });
+    y+=4;
+
+    // Pasos
+    if(y>240){ doc.addPage(); y=15; }
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(12);
+    doc.text('Elaboración:', margin, y);
+    y+=6;
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(10);
+    data.pasos.forEach(p=>{
+      if(y>270){ doc.addPage(); y=15; }
+      const lines=doc.splitTextToSize(p, pageW - margin*2);
+      lines.forEach(line=>{ doc.text(line, margin, y); y+=5; });
+    });
+
+    y+=10;
+    doc.setFontSize(8);
+    doc.setTextColor(150,150,150);
+    doc.text('Generado con QUE COMEMOS - quecomemos.local', margin, y);
+
+    return {doc, data};
+  }
+
+  function injectWAButton(){
+    const modal=document.querySelector('div[role="dialog"]');
+    if(!modal) return;
+    // Buscar contenedor de botones Editar/Borrar
+    const gridBtns=modal.querySelector('div.grid.grid-cols-2.gap-2');
+    if(!gridBtns) return;
+    if(document.getElementById('qc-wa-btn')) return;
+
+    const waBtn=document.createElement('button');
+    waBtn.id='qc-wa-btn';
+    waBtn.title='Compartir por WhatsApp en PDF';
+    waBtn.innerHTML='💬'; // WhatsApp icon simple
+    waBtn.onclick=()=>{
+      try{
+        const result=generarPDFBonito();
+        if(!result){ alert('No se pudo generar receta'); return; }
+        const {doc, data}=result;
+        // Guardar PDF
+        const fileName=`${data.nombre.replace(/[^a-z0-9]/gi,'_')}_${data.comensales}pers.pdf`;
+        doc.save(fileName);
+
+        // Compartir por WhatsApp con texto
+        const textoWA=encodeURIComponent(data.texto);
+        const waUrl=`https://wa.me/?text=${textoWA}`;
+        window.open(waUrl, '_blank');
+
+        // Si navegador soporta Web Share con archivo
+        if(navigator.canShare && navigator.canShare({files: [new File([doc.output('blob')], fileName, {type:'application/pdf'})]})){
+          const file=new File([doc.output('blob')], fileName, {type:'application/pdf'});
+          navigator.share({title:data.nombre, text:data.texto, files:[file]}).catch(()=>{});
+        }
+      }catch(e){
+        console.error(e);
+        alert('Error generando PDF: '+e.message);
+      }
+    };
+
+    // Insertar como tercer botón en grid de 2 -> convertir a 3 columnas
+    gridBtns.style.gridTemplateColumns='1fr 1fr 54px';
+    gridBtns.appendChild(waBtn);
+  }
+
+  // Observar apertura de modales
+  const observer=new MutationObserver(()=>{
+    const modal=document.querySelector('div[role="dialog"]');
+    if(modal){
+      setTimeout(injectWAButton, 200);
+    }
+  });
+  observer.observe(document.body, {childList:true, subtree:true});
+
+  setInterval(injectWAButton, 800);
+})();
+</script>
+
 </body></html>
