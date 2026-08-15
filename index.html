@@ -3,130 +3,91 @@
 <title>QUE COMEMOS 95G LIGERA</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>body{background:#fef7ed} .bg-\[\#fef7ed\]{background:#fef7ed}</style>
-
-<style id="qc-fix-estable">
-  /* Desktop: selector 140px, generar 205px, todo 44px misma altura */
-  /* Móvil: fila1 selector 100%, fila2 3 botones misma línea sin salto */
+<style id="qc-final-stable">
+  /* Fix para que no se mueva */
   @media (max-width: 640px) {
-    /* El grid que contiene Temporada + botones -> 1 columna fija */
-    .qc-temporada-grid {
-      display: flex !important;
-      flex-direction: column !important;
-      gap: 8px !important;
-    }
-    .qc-temporada-grid > div:first-child {
-      width: 100% !important;
-      max-width: 100% !important;
-    }
-    .qc-temporada-grid > div:first-child select {
-      width: 100% !important;
-    }
-    .qc-botones-row {
+    /* Contenedor de botones: siempre 1 línea con 3 botones */
+    .qc-botones-row-fix {
       display: flex !important;
       flex-wrap: nowrap !important;
       gap: 6px !important;
+      align-items: flex-end !important;
       width: 100% !important;
-      overflow: visible !important;
     }
-    .qc-botones-row button {
+    .qc-botones-row-fix button {
       white-space: nowrap !important;
+      flex-shrink: 0;
     }
-    .qc-botones-row button:nth-child(1) { /* Generar */
+    .qc-botones-row-fix button:first-child {
       flex: 1 1 auto !important;
       min-width: 0 !important;
-      padding-left: 12px !important;
-      padding-right: 12px !important;
-      font-size: 14px !important;
-    }
-    .qc-botones-row button:nth-child(2),
-    .qc-botones-row button:nth-child(3) {
-      flex: 0 0 auto !important;
-    }
-  }
-  @media (min-width: 641px) {
-    .qc-temporada-grid {
-      display: flex !important;
-      flex-direction: row !important;
-      flex-wrap: wrap !important;
-      gap: 8px !important;
-      align-items: flex-end !important;
-    }
-    .qc-temporada-grid > div:first-child {
-      flex: 0 0 140px !important;
-      width: 140px !important;
-    }
-    .qc-temporada-grid > div:first-child select {
-      width: 140px !important;
-      height: 44px !important;
-    }
-    .qc-botones-row button {
-      height: 44px !important;
-      min-height: 44px !important;
     }
   }
 </style>
 <script>
 (function(){
-  // Inyección estable de Turnos desde el primer frame, sin setTimeout que mueva
-  function injectTurnosEstable(){
-    const sel=[...document.querySelectorAll('select')].find(s=>[...s.options].some(o=>/Auto \(verano\)/i.test(o.textContent)));
-    const gen=[...document.querySelectorAll('button')].find(b=>/Generar semana/i.test(b.textContent));
-    if(!sel || !gen) return false;
-    
-    // Encontrar grid padre
-    let gridParent = sel.parentElement;
-    for(let i=0;i<6;i++){
-      if(!gridParent) break;
-      if(gridParent.children.length>=2 && gridParent.querySelector('select') && gridParent.querySelector('button')) break;
-      gridParent = gridParent.parentElement;
+  // Desactivar intervalos viejos
+  const _setInterval = window.setInterval;
+  window.setInterval = function(fn, ms){
+    const fnStr = fn.toString();
+    if(fnStr.includes('injectAll') || fnStr.includes('renderBanners')){
+      // Permitir pero con control
+      return _setInterval(fn, 10000); // ralentizar a 10s para que no mueva
     }
-    if(!gridParent) return false;
-    
-    // Marcar para CSS
-    gridParent.classList.add('qc-temporada-grid');
+    return _setInterval(fn, ms);
+  };
+  
+  function stableInject(){
+    const gen=[...document.querySelectorAll('button')].find(b=>/generar semana/i.test(b.textContent));
+    if(!gen) return false;
     const btnsDiv = gen.parentElement;
-    if(btnsDiv) btnsDiv.classList.add('qc-botones-row');
+    if(!btnsDiv) return false;
     
-    // Inyectar Turnos directamente en btnsDiv si no existe
+    btnsDiv.classList.add('qc-botones-row-fix');
+    btnsDiv.style.flexWrap='nowrap';
+    btnsDiv.style.gap='6px';
+    
+    // Asegurar Turnos dentro y en medio
     let turnos=document.getElementById('qc-turnos-btn');
     if(!turnos){
       turnos=document.createElement('button');
       turnos.id='qc-turnos-btn';
       turnos.textContent='👩 Turnos';
-      turnos.className='h-[54px] md:h-[44px] px-4 bg-white border-2 rounded-xl font-bold text-[15px] md:text-[13px]';
-      turnos.style.cssText='height:44px;padding:0 14px;border-radius:12px;border:1px solid #e7dcc9;background:#ffffff;color:#111827;font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;';
-      turnos.onclick=()=>{
-        const m=document.getElementById('qc-turnos-modal');
-        if(m) m.classList.add('open');
-      };
-      if(btnsDiv){
-        // Insertar como 3er botón, después de Preset
-        const preset=[...btnsDiv.querySelectorAll('button')].find(b=>b.textContent.trim()==='Preset');
-        if(preset){
-          preset.insertAdjacentElement('afterend', turnos);
-        } else {
-          btnsDiv.appendChild(turnos);
-        }
-      }
-    } else {
-      // Si ya existe pero está fuera, moverlo dentro de btnsDiv
-      if(btnsDiv && !btnsDiv.contains(turnos)){
-        const preset=[...btnsDiv.querySelectorAll('button')].find(b=>b.textContent.trim()==='Preset');
-        if(preset) preset.insertAdjacentElement('afterend', turnos);
-        else btnsDiv.appendChild(turnos);
+      turnos.style.cssText='height:48px;padding:0 14px;border-radius:12px;border:1px solid #e7dcc9;background:#fff;color:#111827;font-weight:800;font-size:13px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;';
+      turnos.onclick=()=>document.getElementById('qc-turnos-modal')?.classList.add('open');
+    }
+    // Si está fuera, meterlo
+    if(!btnsDiv.contains(turnos)){
+      const preset=[...btnsDiv.querySelectorAll('button')].find(b=>b.textContent.trim()==='Preset');
+      if(preset){
+        // Orden deseado: Generar, Preset, Turnos  (o Generar, Turnos, Preset - elegimos Generar, Preset, Turnos para que Turnos entre)
+        // Según tu último mensaje: subir Turnos a misma línea de Generar y Preset, tiene espacio
+        // Lo ponemos después de Preset para que entre
+        preset.insertAdjacentElement('afterend', turnos);
+      } else {
+        btnsDiv.appendChild(turnos);
       }
     }
+    // Quitar márgenes que hacen salto
+    if(turnos){
+      turnos.style.marginLeft='0';
+      turnos.style.marginTop='0';
+      turnos.style.flexShrink='0';
+    }
+    gen.style.marginLeft='0';
+    gen.style.marginTop='0';
+    
     return true;
   }
   
-  // Ejecutar SINCRONO antes de paint
-  try{ injectTurnosEstable(); }catch(e){}
+  // Ejecutar inmediato
+  stableInject();
+  setTimeout(stableInject, 50);
+  setTimeout(stableInject, 300);
+  setTimeout(stableInject, 1000);
   
-  // Observar solo para asegurar que se queda dentro, sin reordenar
-  const obs=new MutationObserver(()=>{
-    try{ injectTurnosEstable(); }catch(e){}
-  });
-  obs.observe(document.body, {childList:true, subtree:true});
+  // Observar sin mover de sitio
+  new MutationObserver(stableInject).observe(document.body, {childList:true, subtree:true});
 })();
 </script>
 
@@ -380,7 +341,7 @@ function injectAll(force){
 }
 function buildModal(){const list=document.getElementById('qc-turnos-list'); const t=getT(); list.innerHTML=''; DIAS.forEach((d,i)=>{const row=document.createElement('div'); row.className='qc-turno-row'; row.innerHTML=`<label>${d}</label><select data-i="${i}">${TURNOS.map(v=>`<option value="${v}" ${t[i]===v?'selected':''}>${v}</option>`).join('')}</select>`; list.appendChild(row);});}
 let triesTools=0; const ivTools=setInterval(()=>{ triesTools++; if(initTools()||triesTools>50) clearInterval(ivTools); },600);
-try{ injectAll(); }catch(e){} 
+let tries=0; const iv=setInterval(()=>{ tries++; if(injectAll()||tries>40) clearInterval(iv); },700);
 setInterval(()=>{ injectAll(true); },2000);
 document.getElementById('qc-turnos-save').onclick=()=>{const o={}; document.querySelectorAll('#qc-turnos-list select').forEach(s=>{ o[s.dataset.i]=s.value; }); setT(o); document.getElementById('qc-turnos-modal').classList.remove('open'); applyTurnos(); renderBanners();};
 document.getElementById('qc-turnos-close').onclick=()=>document.getElementById('qc-turnos-modal').classList.remove('open');
