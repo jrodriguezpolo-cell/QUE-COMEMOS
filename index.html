@@ -311,34 +311,30 @@ setInterval(()=>{ renderBanners(); },1000);
 })();
 
 
-// Editor minimal - no toca header, añade controles debajo sin borrar lista
+// PUNTO 6 - EDITOR INTEGRADO EN HEADER - sin barra gris, sin romper Turnos
 (function(){
   window.qcLocalReceta = window.qcLocalReceta || {};
   const getGeneral=()=>{ try{ const s=JSON.parse(localStorage.getItem('que-comemos-expert-v2')||localStorage.getItem('que-comemos-expert-v1')||'{}'); return s.comensales||4; }catch{return 4;} };
 
-  function initMinimal(){
+  function patchHeader(){
     const btnRecetas=document.querySelector('button[data-tab="recetas"]');
     const isRecetas=btnRecetas && btnRecetas.className.includes('ff7a1a');
     if(!isRecetas) return;
-    document.querySelectorAll('div.space-y-1').forEach(ingList=>{
-      // Solo listas de ingredientes (tienen filas con flex justify-between y bg-[#fef7ed])
-      const rows=ingList.querySelectorAll('div.flex.justify-between');
-      if(rows.length===0) return;
-      // Verificar que es lista de ingredientes de receta (no lista compra)
-      // Debe estar dentro de modal de receta (tiene header Ingredientes x justo antes)
-      const header = ingList.previousElementSibling;
-      if(!header || !header.textContent.trim().startsWith('Ingredientes x')) return;
-      if(ingList._hasEditor) return;
-      ingList._hasEditor=true;
-
-      // Encontrar receta
-      let rec=null, recipeId=null;
+    document.querySelectorAll('div').forEach(header=>{
+      const txt=(header.textContent||'').trim();
+      if(!txt.startsWith('Ingredientes x')) return;
+      if(header._p6) return;
+      if(!header.className.includes('font-bold') || !header.className.includes('15px')) return;
+      if(header.querySelector('button')) return;
+      const ingList=header.nextElementSibling;
+      if(!ingList || !ingList.className.includes('space-y-1')) return;
+      const first=ingList.querySelector('span')?.textContent?.trim().toLowerCase()||'';
+      let rec=null;
       try{
         const store=JSON.parse(localStorage.getItem('que-comemos-expert-v2')||localStorage.getItem('que-comemos-expert-v1')||'{}');
-        const first=ingList.querySelector('span')?.textContent?.trim().toLowerCase()||'';
         rec=(store.recetas||[]).find(r=>(r.ing||[])[0]?.n?.toLowerCase()===first);
         if(!rec){
-          const names=[...rows].map(d=>d.querySelector('span')?.textContent?.trim().toLowerCase());
+          const names=[...ingList.querySelectorAll('div.flex.justify-between')].map(d=>d.querySelector('span')?.textContent?.trim().toLowerCase());
           let best=null,bs=0;
           for(let r of (store.recetas||[])){
             const rn=(r.ing||[]).map(i=>i.n.toLowerCase());
@@ -347,70 +343,50 @@ setInterval(()=>{ renderBanners(); },1000);
           }
           rec=best;
         }
-        if(rec) recipeId=rec.id;
       }catch{}
       if(!rec) return;
-      const key=recipeId||'_global';
-      const cur=window.qcLocalReceta[key]||getGeneral();
-
-      // Crear barra de controles debajo del header, encima de la lista
-      const bar=document.createElement('div');
-      bar.style.display='flex';
-      bar.style.alignItems='center';
-      bar.style.gap='8px';
-      bar.style.margin='6px 0 8px 0';
-      bar.style.padding='6px 10px';
-      bar.style.background='#f3f4f6';
-      bar.style.borderRadius='10px';
-      bar.style.fontSize='13px';
-      bar.style.fontWeight='700';
-
-      const label=document.createElement('span');
-      label.textContent='Ajustar comensales:';
-      label.style.opacity='.7';
-
-      const minus=document.createElement('button');
-      minus.textContent='−';
-      minus.style.cssText='width:26px;height:26px;border-radius:999px;background:#111827;color:#fff;border:none;font-weight:800;cursor:pointer';
-      const plus=document.createElement('button');
-      plus.textContent='+';
-      plus.style.cssText='width:26px;height:26px;border-radius:999px;background:#111827;color:#fff;border:none;font-weight:800;cursor:pointer';
+      header._p6=true;
+      const recipeId=rec.id;
+      const cur=window.qcLocalReceta[recipeId]|| getGeneral();
+      const turnoLabel=window.qcTurnoLabel||'';
+      header.innerHTML='';
+      header.className='font-bold text-[15px] mb-2 flex items-center gap-2 flex-wrap';
+      const t1=document.createTextNode('Ingredientes x ');
+      const btnM=document.createElement('button');
+      btnM.textContent='−';
+      btnM.style.cssText='width:26px;height:26px;border-radius:999px;background:#111827;color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none';
       const num=document.createElement('span');
+      num.id='qc-num-'+recipeId;
       num.textContent=cur;
-      num.style.cssText='min-width:18px;text-align:center;font-weight:900;font-size:14px';
-
-      bar.appendChild(label);
-      bar.appendChild(minus);
-      bar.appendChild(num);
-      bar.appendChild(plus);
-
-      // Insertar bar antes de ingList (entre header y lista)
-      header.parentNode.insertBefore(bar, ingList);
-
-      const update=(v)=>{
-        num.textContent=v;
-        try{
-          const rows2=[...ingList.querySelectorAll('div.flex.justify-between')];
-          rows2.forEach((row,i)=>{
-            const ing=rec.ing[i]; if(!ing) return;
-            const qty=row.querySelectorAll('span')[1];
-            if(qty) qty.textContent=(Math.round(ing.c*v*10)/10)+' '+ing.u;
-          });
-        }catch{}
+      num.style.cssText='min-width:18px;text-align:center;font-weight:900';
+      const btnP=document.createElement('button');
+      btnP.textContent='+';
+      btnP.style.cssText='width:26px;height:26px;border-radius:999px;background:#111827;color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none';
+      const t2=document.createTextNode(' comensales'+turnoLabel);
+      const update=(nv)=>{
+        window.qcLocalReceta[recipeId]=nv;
+        num.textContent=nv;
+        const rows=[...ingList.querySelectorAll('div.flex.justify-between')];
+        rows.forEach((row,i)=>{
+          const ing=rec.ing[i]; if(!ing) return;
+          const qty=row.querySelectorAll('span')[1];
+          if(qty) qty.textContent=(Math.round(ing.c*nv*10)/10)+' '+ing.u;
+        });
       };
-
-      minus.onclick=()=>{ let v=window.qcLocalReceta[key]||getGeneral(); v=Math.max(1,v-1); window.qcLocalReceta[key]=v; update(v); };
-      plus.onclick=()=>{ let v=window.qcLocalReceta[key]||getGeneral(); v=Math.min(20,v+1); window.qcLocalReceta[key]=v; update(v); };
-
-      window.qcLocalReceta[key]=cur;
-      // Actualizar si necesario
-      const m=header.textContent.match(/Ingredientes x (\d+)/);
-      const displayed=m?+m[1]:getGeneral();
-      if(cur!==displayed) update(cur);
+      btnM.onclick=()=>{ let v=window.qcLocalReceta[recipeId]||getGeneral(); v=Math.max(1,v-1); update(v); };
+      btnP.onclick=()=>{ let v=window.qcLocalReceta[recipeId]||getGeneral(); v=Math.min(20,v+1); update(v); };
+      header.appendChild(t1);
+      header.appendChild(btnM);
+      header.appendChild(num);
+      header.appendChild(btnP);
+      header.appendChild(t2);
     });
   }
-  setInterval(initMinimal, 1000);
+  setInterval(patchHeader, 800);
 })();
+
+
+
 
 })();
 </script>
