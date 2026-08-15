@@ -2200,6 +2200,11 @@ setInterval(()=>{ renderBanners(); },1000);
 
 
 
+
+
+
+
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style id="qc-whatsapp-style">
   #qc-wa-btn {
@@ -2207,72 +2212,47 @@ setInterval(()=>{ renderBanners(); },1000);
     display:inline-flex; align-items:center; justify-content:center; font-size:22px; cursor:pointer;
   }
   #qc-wa-btn:hover { background:#128C7E; }
+  #qc-wa-pdf-hint { font-size:10px; opacity:.6; text-align:center; margin-top:4px; }
 </style>
-<script id="qc-whatsapp-share">
+<script id="qc-whatsapp-share-v2">
 (function(){
   function buildDatosReceta(){
     const modal=document.querySelector('div[role="dialog"]');
     if(!modal) return null;
-
-    // Nombre y emoji
     let nombre='Receta';
-    let emoji='';
     const firstDivs=[...modal.querySelectorAll('div')].filter(d=>d.className && d.className.includes('font-extrabold') && d.textContent.trim().length>2 && d.textContent.trim().length<80);
     if(firstDivs.length) nombre=firstDivs[0].textContent.trim().split('\n')[0].trim();
-    // Emoji buscar en modal primer elemento con emoji pescado etc
-    const emojiEl=modal.querySelector('div.text-\[32px\], div.text-\[28px\]') || [...modal.querySelectorAll('div')].find(d=>/^[\uD800-\uDBFF]/.test(d.textContent.trim()));
-    if(emojiEl) { const t=emojiEl.textContent.trim().slice(0,4); if(t) emoji=t; }
-
-    // Tipo, grupo, temporada, momento
-    let metaText='';
-    const metaCandidates=[...modal.querySelectorAll('div')].filter(d=>d.textContent.includes('principal') || d.textContent.includes('pescado') || d.textContent.includes('todo_año'));
-    if(metaCandidates.length) metaText=metaCandidates[0].textContent.trim().replace(/\s+/g,' ');
-
-    // KCAL etc - buscar por texto KCAL, PROT...
-    let kcal='', prot='', grasa='', hc='';
+    let emoji='';
     const allText=modal.textContent;
-    // Buscar elementos que contienen KCAL
-    [...modal.querySelectorAll('div')].forEach(d=>{
-      const txt=d.textContent;
-      if(txt.includes('KCAL')) {
-        const val=d.querySelector('div:last-child, span:last-child') || d;
-        // el valor está en la misma caja
-        const m=txt.match(/KCAL\s*([\d]+)/i);
-        if(m) kcal=m[1];
-        else {
-          const inner=[...d.children];
-          if(inner.length>=2) kcal=inner[1].textContent.trim();
-        }
-      }
-    });
-    // Más robusto: buscar los 4 cuadros por su estructura
-    const boxes=[...modal.querySelectorAll('div.bg-white, div.bg-\[\#fef7ed\], div.rounded-xl')].filter(b=>b.textContent.includes('KCAL')||b.textContent.includes('PROT'));
-    // Simplificado: regex sobre todo el texto
     const kcalMatch=allText.match(/KCAL\s*([0-9]+)/i);
-    if(kcalMatch) kcal=kcalMatch[1];
     const protMatch=allText.match(/PROT\s*([0-9]+g?)/i);
-    if(protMatch) prot=protMatch[1];
     const grasaMatch=allText.match(/GRASA\s*([0-9]+g?)/i);
-    if(grasaMatch) grasa=grasaMatch[1];
     const hcMatch=allText.match(/\bHC\b\s*([0-9]+g?)/i);
-    if(hcMatch) hc=hcMatch[1];
+    let kcal=kcalMatch?kcalMatch[1]:'';
+    let prot=protMatch?protMatch[1]:'';
+    let grasa=grasaMatch?grasaMatch[1]:'';
+    let hc=hcMatch?hcMatch[1]:'';
 
-    // Tiempo - buscar si existe
-    let tiempo='';
-    const tiempoEl=[...modal.querySelectorAll('div')].find(d=>d.textContent.includes('min') && (d.textContent.includes('Clásica')||d.textContent.includes('Expert')));
-    if(tiempoEl) tiempo=tiempoEl.textContent.trim();
+    let metaText='';
+    const metaCandidates=[...modal.querySelectorAll('div')].filter(d=>/principal|pescado|carne|verdura|legumbre|todo_año|verano|invierno/.test(d.textContent));
+    if(metaCandidates.length) metaText=metaCandidates[0].textContent.trim().slice(0,100);
 
-    // Ingredientes
+    let dietaInfo='🌊 Med';
+    if(/pescado/i.test(metaText)) dietaInfo='🐟 Pescado';
+    else if(/carne/i.test(metaText)) dietaInfo='🥩 Carne';
+    else if(/verdura/i.test(metaText)) dietaInfo='🥬 Verdura';
+    else if(/legumbre/i.test(metaText)) dietaInfo='🫘 Legumbre';
+    else if(/huevo/i.test(metaText)) dietaInfo='🥚 Huevo';
+
     const allFlex=[...modal.querySelectorAll('div.flex')].filter(d=>d.className.includes('justify-between') && d.querySelectorAll('span').length>=2);
-    let ingredientes=allFlex.slice(0,20).map(el=>{
+    let ingredientes=allFlex.slice(0,30).map(el=>{
       const spans=[...el.querySelectorAll('span')];
       const n=spans[0]?.textContent?.trim()||'';
       const c=spans[1]?.textContent?.trim()||'';
-      if(!n) return null;
+      if(!n || n.length>60) return null;
       return {n,c, txt:`${n} - ${c}`};
     }).filter(Boolean);
 
-    // Pasos
     const pasosEls=[...modal.querySelectorAll('ol li')];
     let pasos=pasosEls.map((li,i)=> {
       let t=li.textContent.trim().replace(/^\s*\d+\s*/, '').trim();
@@ -2282,25 +2262,9 @@ setInterval(()=>{ renderBanners(); },1000);
     let comensales=2;
     try{ comensales=window.qcGetComensales ? window.qcGetComensales() : 2; }catch(e){}
 
-    // Dieta icono - buscar info de equilibrio actual
-    let dietaInfo='';
-    try{
-      const eqRaw=localStorage.getItem('que-comemos-expert-v2');
-      if(eqRaw){
-        const j=JSON.parse(eqRaw);
-        const eq=j.equilibrio||{};
-        // simple: determinar icono por grupo de receta
-        if(metaText.includes('pescado')) dietaInfo='🐟 Pescado';
-        else if(metaText.includes('carne')) dietaInfo='🥩 Carne';
-        else if(metaText.includes('verdura')) dietaInfo='🥬 Verdura';
-        else if(metaText.includes('legumbre')) dietaInfo='🫘 Legumbre';
-        else dietaInfo='🌊 Med';
-      }
-    }catch(e){}
+    let textoWA=`*${nombre}* - ${comensales} comensales\n${metaText}\nKCAL ${kcal} | PROT ${prot} | GRASA ${grasa} | HC ${hc}\n\n*Ingredientes:*\n${ingredientes.map(i=>i.txt).join('\n')}\n\n*Pasos:*\n${pasos.map(p=>p.num+'. '+p.txt).join('\n')}\n\nPDF adjunto con receta completa\n_Generado con QUE COMEMOS_`;
 
-    let textoWA=`*${emoji} ${nombre}* - ${comensales} comensales\n${metaText}\nKCAL ${kcal} | PROT ${prot} | GRASA ${grasa} | HC ${hc}\n\n*Ingredientes:*\n${ingredientes.map(i=>i.txt).join('\n')}\n\n*Pasos:*\n${pasos.map(p=>p.num+'. '+p.txt).join('\n')}\n\n_Generado con QUE COMEMOS_`;
-
-    return {nombre, emoji, metaText, kcal, prot, grasa, hc, tiempo, ingredientes, pasos, comensales, textoWA, dietaInfo};
+    return {nombre, emoji, metaText, kcal, prot, grasa, hc, ingredientes, pasos, comensales, textoWA, dietaInfo};
   }
 
   function generarPDFBonito(){
@@ -2312,7 +2276,6 @@ setInterval(()=>{ renderBanners(); },1000);
     const margin=15;
     let y=14;
 
-    // Fondo header crema
     doc.setFillColor(254,247,237);
     doc.rect(0,0,pageW,22,'F');
     doc.setFont('helvetica','bold');
@@ -2324,24 +2287,19 @@ setInterval(()=>{ renderBanners(); },1000);
     doc.setTextColor(100,100,100);
     doc.text('Receta compartida', margin, 14);
 
-    // Dieta icono arriba derecha
     if(data.dietaInfo){
       doc.setFont('helvetica','bold');
       doc.setFontSize(10);
-      doc.setTextColor(17,24,39);
       doc.text(data.dietaInfo, pageW-margin, 10, {align:'right'});
     }
 
     y=28;
-    // Nombre con emoji
     doc.setFont('helvetica','bold');
     doc.setFontSize(18);
     doc.setTextColor(17,24,39);
-    const title=`${data.emoji} ${data.nombre}`.trim();
-    doc.text(title, margin, y);
+    doc.text(data.nombre.slice(0,60), margin, y);
     y+=7;
 
-    // Meta
     doc.setFont('helvetica','normal');
     doc.setFontSize(9);
     doc.setTextColor(80,80,80);
@@ -2351,7 +2309,6 @@ setInterval(()=>{ renderBanners(); },1000);
       y+=2;
     }
 
-    // KCAL box bonito
     if(data.kcal || data.prot){
       doc.setFillColor(255,255,255);
       doc.setDrawColor(231,220,201);
@@ -2364,16 +2321,6 @@ setInterval(()=>{ renderBanners(); },1000);
       y+=20;
     }
 
-    // Tiempo si existe
-    if(data.tiempo){
-      doc.setFont('helvetica','normal');
-      doc.setFontSize(9);
-      doc.setTextColor(80,80,80);
-      doc.text(data.tiempo.slice(0,120), margin, y);
-      y+=6;
-    }
-
-    // Ingredientes título
     doc.setFont('helvetica','bold');
     doc.setFontSize(12);
     doc.setTextColor(17,24,39);
@@ -2383,18 +2330,16 @@ setInterval(()=>{ renderBanners(); },1000);
     doc.setFontSize(10);
     data.ingredientes.forEach(ing=>{
       if(y>270){ doc.addPage(); y=15; }
-      const left=ing.n;
-      const right=ing.c;
       doc.setFont('helvetica','bold');
-      doc.text(left, margin, y);
+      doc.text(ing.n.slice(0,40), margin, y);
       doc.setFont('helvetica','normal');
+      const right=ing.c;
       const rightX=pageW-margin - doc.getTextWidth(right);
       doc.text(right, rightX, y);
       y+=5;
     });
     y+=4;
 
-    // Pasos
     if(y>240){ doc.addPage(); y=15; }
     doc.setFont('helvetica','bold');
     doc.setFontSize(12);
@@ -2423,9 +2368,22 @@ setInterval(()=>{ renderBanners(); },1000);
     y+=6;
     doc.setFontSize(8);
     doc.setTextColor(150,150,150);
-    doc.text('Generado con QUE COMEMOS - quecomemos.local | '+ new Date().toLocaleDateString('es-ES'), margin, y);
+    doc.text('Generado con QUE COMEMOS - '+ new Date().toLocaleDateString('es-ES'), margin, y);
 
     return {doc, data};
+  }
+
+  function descargarPDF(doc, fileName){
+    // Método compatible iOS: crear link y click
+    const blob=doc.output('blob');
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=fileName;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+    return blob;
   }
 
   function injectWAButton(){
@@ -2437,26 +2395,36 @@ setInterval(()=>{ renderBanners(); },1000);
 
     const waBtn=document.createElement('button');
     waBtn.id='qc-wa-btn';
-    waBtn.title='Compartir por WhatsApp en PDF';
-    waBtn.innerHTML='💬';
-    waBtn.onclick=()=>{
+    waBtn.title='Compartir receta PDF por WhatsApp';
+    waBtn.innerHTML='📄';
+    waBtn.onclick=async ()=>{
       try{
         const result=generarPDFBonito();
         if(!result){ alert('No se pudo generar receta'); return; }
         const {doc, data}=result;
-        const fileName=`${data.nombre.replace(/[^a-z0-9]/gi,'_')}_${data.comensales}pers.pdf`;
-        doc.save(fileName);
-        const textoWA=encodeURIComponent(data.textoWA);
-        const waUrl=`https://wa.me/?text=${textoWA}`;
-        window.open(waUrl, '_blank');
-        if(navigator.canShare){
+        const fileName=`${data.nombre.replace(/[^a-z0-9]/gi,'_')}_${data.comensales}pers.pdf`.slice(0,80);
+        const blob=descargarPDF(doc, fileName);
+
+        // Intentar compartir archivo nativo (móvil)
+        if(navigator.canShare && navigator.share){
           try{
-            const file=new File([doc.output('blob')], fileName, {type:'application/pdf'});
+            const file=new File([blob], fileName, {type:'application/pdf'});
             if(navigator.canShare({files:[file]})){
-              navigator.share({title:data.nombre, text:data.textoWA, files:[file]}).catch(()=>{});
+              await navigator.share({title:data.nombre, text:data.textoWA, files:[file]});
+              return; // compartido con éxito, no abrir wa.me
             }
-          }catch(e){}
+          }catch(e){
+            console.log('share failed', e);
+          }
         }
+
+        // Fallback: abrir WhatsApp con texto + avisar que PDF descargado
+        setTimeout(()=>{
+          const textoWA=encodeURIComponent(data.textoWA + "\n\n(PDF descargado: "+fileName+" - adjuntalo manualmente si quieres)");
+          const waUrl=`https://wa.me/?text=${textoWA}`;
+          window.open(waUrl, '_blank');
+        }, 600);
+
       }catch(e){
         console.error(e);
         alert('Error generando PDF: '+e.message);
@@ -2464,6 +2432,14 @@ setInterval(()=>{ renderBanners(); },1000);
     };
     gridBtns.style.gridTemplateColumns='1fr 1fr 54px';
     gridBtns.appendChild(waBtn);
+
+    // Añadir hint pequeño
+    if(!document.getElementById('qc-wa-pdf-hint')){
+      const hint=document.createElement('div');
+      hint.id='qc-wa-pdf-hint';
+      hint.textContent='PDF + WhatsApp';
+      gridBtns.parentElement.appendChild(hint);
+    }
   }
 
   const observer=new MutationObserver(()=>{
