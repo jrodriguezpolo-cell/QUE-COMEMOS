@@ -1057,6 +1057,38 @@ setInterval(()=>{ renderBanners(); },1000);
     });
   }
   
+  function getDietaInfo(eq){
+    const PRESETS_INFO = {
+      mediterraneo: {icon:'🌊', label:'Med', full:'Mediterránea'},
+      pescado: {icon:'🐟', label:'Pescado', full:'Alta pescado'},
+      vegetariano: {icon:'🥬', label:'Veg', full:'Vegetariana'},
+      proteico: {icon:'💪', label:'Proteica', full:'Proteica'}
+    };
+    const PRESETS_VALS = {
+      mediterraneo: {pescado:2, carne:2, legumbre:2, verdura:4, huevo:2, pastaArroz:2},
+      pescado: {pescado:3, carne:1, legumbre:2, verdura:4, huevo:1, pastaArroz:1},
+      vegetariano: {pescado:1, carne:0, legumbre:3, verdura:5, huevo:2, pastaArroz:1},
+      proteico: {pescado:2, carne:3, legumbre:1, verdura:3, huevo:3, pastaArroz:1}
+    };
+    for(const key of Object.keys(PRESETS_VALS)){
+      const p = PRESETS_VALS[key];
+      let match = true;
+      for(const k of Object.keys(p)){
+        if((eq[k]||0) !== p[k]){ match=false; break; }
+      }
+      if(match){
+        return {key, ...PRESETS_INFO[key]};
+      }
+    }
+    // No match exacto -> personalizada, pero si es default inicial, mostrar med
+    const total = Object.values(eq).reduce((a,b)=>a+b,0);
+    if(total===12){
+      // por defecto med si no se detecta
+      return {key:'mediterraneo', icon:'🌊', label:'Med', full:'Mediterránea', total};
+    }
+    return {key:'personalizada', icon:'🥗', label:'Pers', full:'Personalizada', total};
+  }
+
   function createEqBtn(){
     const fila2=ensureFila2();
     if(!fila2) return false;
@@ -1064,17 +1096,28 @@ setInterval(()=>{ renderBanners(); },1000);
     if(!btn){
       btn=document.createElement('button');
       btn.id='qc-eq-btn';
+      btn.style.display='inline-flex';
+      btn.style.alignItems='center';
+      btn.style.gap='6px';
       fila2.appendChild(btn);
     }
     const eq=getEquilibrio();
+    const info=getDietaInfo(eq);
     const total=Object.values(eq).reduce((a,b)=>a+b,0);
-    btn.textContent=`⚖️ Equilibrio: ${total}`;
+    // Nuevo texto: Dieta + icono dieta seleccionada
+    btn.textContent=`${info.icon} Dieta: ${info.label} (${total})`;
+    btn.title=`Dieta ${info.full} - ${total} raciones`;
     
     if(!btn._fixed){
       btn._fixed=true;
       btn.onclick=()=>{
         hideOriginalEquilibrioPrecise();
         buildEqModal();
+        // Preseleccionar en el selector la dieta actual
+        const sel=document.getElementById('qc-eq-preset-select');
+        if(sel && info.key && sel.querySelector(`option[value="${info.key}"]`)){
+          sel.value=info.key;
+        }
         document.getElementById('qc-eq-modal')?.classList.add('open');
       };
     }
@@ -1100,7 +1143,27 @@ setInterval(()=>{ renderBanners(); },1000);
         const btn=document.getElementById('qc-eq-btn');
         if(btn){
           const total=Object.values(eq).reduce((a,b)=>a+b,0);
-          btn.textContent=`⚖️ Equilibrio: ${total}`;
+          // recalcular info
+          const PRESETS_VALS2 = {
+            mediterraneo: {pescado:2, carne:2, legumbre:2, verdura:4, huevo:2, pastaArroz:2},
+            pescado: {pescado:3, carne:1, legumbre:2, verdura:4, huevo:1, pastaArroz:1},
+            vegetariano: {pescado:1, carne:0, legumbre:3, verdura:5, huevo:2, pastaArroz:1},
+            proteico: {pescado:2, carne:3, legumbre:1, verdura:3, huevo:3, pastaArroz:1}
+          };
+          const PRESETS_INFO2 = {
+            mediterraneo: {icon:'🌊', label:'Med'},
+            pescado: {icon:'🐟', label:'Pescado'},
+            vegetariano: {icon:'🥬', label:'Veg'},
+            proteico: {icon:'💪', label:'Proteica'}
+          };
+          let info2 = {icon:'🥗', label:'Pers'};
+          for(const k of Object.keys(PRESETS_VALS2)){
+            const p=PRESETS_VALS2[k];
+            let m=true;
+            for(const kk of Object.keys(p)){ if((eq[kk]||0)!==p[kk]){m=false;break;} }
+            if(m){ info2=PRESETS_INFO2[k]; break; }
+          }
+          btn.textContent=`${info2.icon} Dieta: ${info2.label} (${total})`;
         }
         modal.classList.remove('open');
         setTimeout(()=>location.reload(), 250);
