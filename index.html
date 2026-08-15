@@ -228,27 +228,20 @@
 </script>
 
 
-<style id="qc-responsive-mobile">
-  /* Base: asegurar wrap visible */
-  div:has(> button#qc-turnos-btn) { overflow: visible !important; flex-wrap: wrap !important; }
-  
+
+
+
+<style id="qc-mobile-clean">
   @media (max-width: 640px) {
-    /* En móvil: Auto 130px, Generar más compacto 160px para que entre Preset */
-    .qc-stable-temp { width:130px !important; max-width:130px !important; flex:0 0 130px !important; }
-    
-    /* Generar semana compacto en móvil */
-    button:has-text("Generar semana") { min-width:150px !important; flex:1 1 150px !important; padding-left:14px !important; padding-right:14px !important; }
-    
-    /* Contenedor padre: permitir wrap real */
-    /* Forzar que Turnos baje debajo de temporada si no cabe */
-    #qc-turnos-btn {
-      order: 4 !important;
-    }
+    /* Evitar corte */
+    body { overflow-x: hidden; }
+    #qc-turnos-btn, button { max-width: 100%; }
   }
 </style>
 <script>
 (function(){
-  function mobileLayout(){
+  let moved=false;
+  function fixMobile(){
     const isMobile = window.innerWidth < 640;
     const sel=[...document.querySelectorAll('select')].find(s=>[...s.options].some(o=>/Auto \(verano\)/i.test(o.textContent)));
     const gen=[...document.querySelectorAll('button')].find(b=>/Generar semana/i.test(b.textContent));
@@ -267,72 +260,101 @@
     })();
     if(!outer) return;
     
+    const tempWrapper = sel.parentElement; // contiene label + select
+    const btnWrapper = gen.parentElement; // contiene gen + preset + turnos
+    
+    outer.style.display='flex';
     outer.style.flexWrap='wrap';
+    outer.style.gap='8px';
     outer.style.overflow='visible';
+    outer.style.alignItems='flex-start';
     
     if(isMobile){
-      // En móvil: [Auto + Generar + Preset] en primera línea, Turnos debajo de Auto
-      // Mover Turnos después del wrapper de temporada para que quede debajo
-      const tempWrapper = sel.parentElement;
-      const btnWrapper = gen.parentElement;
+      // MÓVIL: Estructura deseada
+      // Fila 1: [Temporada 130px] [Generar 150px + Preset]
+      // Fila 2: [Turnos] debajo de Temporada
       
-      // Asegurar orden: Auto (1), Generar (2), Preset (3), Turnos (4) pero Turnos en nueva línea
-      sel.style.order='1';
-      gen.style.order='2';
-      preset.style.order='3';
-      turnos.style.order='4';
+      // 1. Temporada compacta
+      sel.style.width='130px';
+      sel.style.maxWidth='130px';
+      sel.style.minWidth='130px';
+      tempWrapper.style.flex='0 0 130px';
+      tempWrapper.style.order='1';
       
-      // Generar compacto en móvil
-      gen.style.minWidth='150px';
-      gen.style.flex='1 1 150px';
-      gen.style.paddingLeft='14px';
-      gen.style.paddingRight='14px';
+      // 2. BtnWrapper solo con Generar + Preset en fila 1
+      if(btnWrapper){
+        btnWrapper.style.display='flex';
+        btnWrapper.style.flexWrap='nowrap';
+        btnWrapper.style.gap='6px';
+        btnWrapper.style.order='2';
+        btnWrapper.style.flex='1 1 auto';
+        btnWrapper.style.overflow='visible';
+        btnWrapper.style.minWidth='0';
+      }
+      gen.style.minWidth='130px';
+      gen.style.flex='1 1 130px';
+      gen.style.paddingLeft='12px';
+      gen.style.paddingRight='12px';
+      gen.style.whiteSpace='nowrap';
+      gen.style.order='0';
       
-      // Turnos debajo de selector: si el ancho no da, forzamos wrap poniéndolo con flex-basis 100% o dejándolo auto pero con clear
-      // Ponemos Turnos con margin-top y que ocupe línea propia debajo de Auto
+      preset.style.flex='0 0 auto';
+      preset.style.order='0';
+      
+      // 3. Sacar Turnos del btnWrapper y ponerlo debajo de Temporada en fila 2
+      if(btnWrapper && btnWrapper.contains(turnos)){
+        // Mover Turnos fuera del btnWrapper al outer
+        outer.appendChild(turnos);
+        moved=true;
+      }
+      turnos.style.order='3';
       turnos.style.flex='0 0 auto';
       turnos.style.alignSelf='flex-start';
-      
-      // Si aún se sale Preset, reducimos gap a 6px en móvil
-      outer.style.gap='6px';
-      if(btnWrapper){
-        btnWrapper.style.gap='6px';
-        btnWrapper.style.flexWrap='wrap';
-        btnWrapper.style.overflow='visible';
-      }
-      
-      // Truco: si Preset se sale, movemos Turnos a segunda línea completa
-      const totalWidth = sel.offsetWidth + gen.offsetWidth + preset.offsetWidth + 12;
-      if(totalWidth > (window.innerWidth - 32)){
-        // No cabe, pon Turnos en línea propia debajo
-        turnos.style.flexBasis='100%';
-        turnos.style.maxWidth='fit-content';
-        turnos.style.marginTop='0';
-        // Pero el usuario pidió Turnos debajo de selector y Preset junto a Generar, así que dejamos Turnos en nueva línea
-        // Creamos segunda fila visual: Turnos solo
-        turnos.style.order='10';
+      turnos.style.marginLeft='0';
+      turnos.style.marginTop='0';
+      // Forzar que Turnos vaya a nueva línea debajo de Temporada
+      // Hacemos que ocupe su propia línea: flex-basis 100% pero con max-content
+      turnos.style.flexBasis='auto';
+      // Crear salto de línea con pseudo: ponemos que outer tenga wrap y Turnos esté después
+      // Si aún no cabe Preset, reducimos aún más Generar
+      const available = window.innerWidth - 32 - sel.offsetWidth - 12;
+      if(preset.offsetLeft + preset.offsetWidth > window.innerWidth - 16){
+        gen.style.minWidth='110px';
+        gen.style.flex='1 1 110px';
+        gen.style.fontSize='14px';
       }
     } else {
-      // Desktop: todo en misma línea izquierda
-      sel.style.order='0';
-      gen.style.order='0';
-      preset.style.order='0';
-      turnos.style.order='0';
-      sel.style.flex='0 0 140px';
+      // DESKTOP: restaurar
+      if(moved && outer.contains(turnos) && btnWrapper && !btnWrapper.contains(turnos)){
+        btnWrapper.appendChild(turnos);
+      }
+      sel.style.width='140px';
+      sel.style.maxWidth='140px';
+      sel.style.minWidth='140px';
+      tempWrapper.style.flex='0 0 140px';
+      tempWrapper.style.order='0';
+      
+      if(btnWrapper){
+        btnWrapper.style.order='0';
+        btnWrapper.style.flex='0 0 auto';
+        btnWrapper.style.flexWrap='nowrap';
+      }
       gen.style.minWidth='205px';
       gen.style.flex='0 0 205px';
       gen.style.paddingLeft='22px';
       gen.style.paddingRight='22px';
-      outer.style.gap='8px';
+      gen.style.fontSize='';
+      gen.style.order='0';
+      preset.style.order='0';
+      turnos.style.order='0';
       turnos.style.flexBasis='auto';
-      turnos.style.maxWidth='none';
     }
   }
-  window.addEventListener('resize', mobileLayout);
-  setTimeout(mobileLayout, 50);
-  setTimeout(mobileLayout, 400);
-  setTimeout(mobileLayout, 1000);
-  setInterval(mobileLayout, 2000);
+  // Ejecutar sin salto: inmediato y sin re-ordenar después
+  fixMobile();
+  window.addEventListener('resize', fixMobile);
+  setTimeout(fixMobile, 100);
+  setTimeout(fixMobile, 600);
 })();
 </script>
 
