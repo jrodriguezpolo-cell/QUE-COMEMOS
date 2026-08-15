@@ -262,7 +262,6 @@ function injectAll(force){
   tbtn=document.createElement('button');
   tbtn.id='qc-turnos-btn'; tbtn.textContent='👩 Turnos';
   tbtn.onclick=()=>{ buildModal(); document.getElementById('qc-turnos-modal').classList.add('open'); };
-  try{ orderFila2(); }catch(e){}
   // On mobile, gen.parentNode may be flex-wrap, insert after gen with margin
   try{
     if(gen.parentNode){
@@ -1030,40 +1029,6 @@ setInterval(()=>{ renderBanners(); },1000);
     return fila2;
   }
   
-
-
-  window.qcOrderFila2 = function(){
-    const fila2 = document.getElementById('qc-fila2');
-    if(!fila2) return;
-    const ORDER = ['qc-nr-btn','qc-rotar-btn','qc-nr-fixed','qc-turnos-btn','qc-eq-btn','qc-compra-btn'];
-    const children = [...fila2.children];
-    children.sort((a,b)=>{
-      const ia = ORDER.indexOf(a.id);
-      const ib = ORDER.indexOf(b.id);
-      const va = ia===-1?999:ia;
-      const vb = ib===-1?999:ib;
-      return va - vb;
-    });
-    children.forEach(ch=>fila2.appendChild(ch));
-  };
-  function orderFila2(){ try{ return window.qcOrderFila2(); }catch(e){} }
-
-  function _dummy(){
-    const fila2 = document.getElementById('qc-fila2');
-    if(!fila2) return;
-    const ORDER = ['qc-nr-btn','qc-rotar-btn','qc-nr-fixed','qc-turnos-btn','qc-eq-btn','qc-compra-btn'];
-    // Obtener hijos
-    const children = [...fila2.children];
-    children.sort((a,b)=>{
-      const ia = ORDER.indexOf(a.id);
-      const ib = ORDER.indexOf(b.id);
-      const va = ia===-1?999:ia;
-      const vb = ib===-1?999:ib;
-      return va - vb;
-    });
-    children.forEach(ch=>fila2.appendChild(ch));
-  }
-
   function hideOriginalEquilibrioPrecise(){
     // Buscar exactamente el label "Equilibrio semanal (nº raciones)"
     const labels=[...document.querySelectorAll('div.font-bold')].filter(d=>d.textContent.includes('Equilibrio semanal'));
@@ -1136,7 +1101,6 @@ setInterval(()=>{ renderBanners(); },1000);
       btn.style.gap='6px';
       fila2.appendChild(btn);
     }
-    orderFila2();
     const eq=getEquilibrio();
     const info=getDietaInfo(eq);
     const total=Object.values(eq).reduce((a,b)=>a+b,0);
@@ -1263,10 +1227,8 @@ setInterval(()=>{ renderBanners(); },1000);
     attachEqModal();
     hideOriginalEquilibrioPrecise();
     hidePresetFromMenu();
-    try{ window.qcOrderFila2(); }catch(e){}
     if(tries>100) clearInterval(iv);
   },400);
-  setInterval(()=>{ try{ window.qcOrderFila2(); }catch(e){} }, 800);
 })();
 </script>
 
@@ -1624,7 +1586,6 @@ setInterval(()=>{ renderBanners(); },1000);
       btn.textContent='🛒 Compra';
       fila2.appendChild(btn);
     }
-    orderFila2();
     const items=computeCompra();
     btn.textContent=`🛒 Compra: ${items.length}`;
     
@@ -2043,6 +2004,66 @@ setInterval(()=>{ renderBanners(); },1000);
     injectDetalleToggle();
     injectEditDetallado();
   }, 800);
+})();
+</script>
+
+
+<script id="qc-fix-orden-final">
+(function(){
+  function ensureFila2Exists(){
+    let fila2=document.getElementById('qc-fila2');
+    if(fila2) return fila2;
+    // Buscar como lo hacen los otros scripts
+    const whiteCard=document.querySelector('div.bg-white.rounded-xl.border.p-4.space-y-4');
+    if(!whiteCard) return null;
+    const gridDiv=whiteCard.querySelector('div.grid.md\:grid-cols-2');
+    if(!gridDiv) return null;
+    fila2=document.createElement('div');
+    fila2.id='qc-fila2';
+    fila2.style.display='flex';
+    fila2.style.gap='6px';
+    fila2.style.marginTop='8px';
+    fila2.style.flexWrap='nowrap';
+    fila2.style.overflowX='auto';
+    gridDiv.insertAdjacentElement('afterend', fila2);
+    return fila2;
+  }
+  function unifyAndOrder(){
+    const fila2=ensureFila2Exists();
+    if(!fila2) return;
+    // Mover Turnos dentro de fila2 si está fuera
+    const tbtn=document.getElementById('qc-turnos-btn');
+    if(tbtn && tbtn.parentElement!==fila2){
+      fila2.appendChild(tbtn);
+      tbtn.style.marginLeft='0';
+      tbtn.style.marginTop='0';
+      tbtn.style.flexShrink='0';
+    }
+    // Ocultar barra vieja y preset original
+    const oldBar=document.getElementById('qc-nr-fixed');
+    if(oldBar) oldBar.style.display='none';
+    [...document.querySelectorAll('button')].forEach(b=>{
+      if(b.textContent.trim()==='Preset' && !b.closest('#qc-eq-modal') && b.id!=='qc-eq-preset'){
+        b.style.display='none';
+      }
+    });
+    // Orden fijo: Rotar, Turnos, Dieta, Compra
+    const ORDER=['qc-nr-btn','qc-turnos-btn','qc-eq-btn','qc-compra-btn'];
+    const childs=[...fila2.children].filter(el=>el.id && ORDER.includes(el.id));
+    const others=[...fila2.children].filter(el=>!el.id || !ORDER.includes(el.id));
+    childs.sort((a,b)=> ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
+    // Re-append en orden
+    childs.forEach(c=>fila2.appendChild(c));
+    others.forEach(c=>fila2.appendChild(c));
+  }
+  // Ejecutar varias veces
+  let tries=0;
+  const iv=setInterval(()=>{
+    tries++;
+    unifyAndOrder();
+    if(tries>200) clearInterval(iv);
+  },300);
+  setInterval(unifyAndOrder, 600);
 })();
 </script>
 
