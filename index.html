@@ -199,7 +199,7 @@ Error generating stack: `+u.message+`
     <div id="qc-tools-tabs">
       <button data-tab="backup" class="active">💾 Backup</button>
       <button data-tab="import">📥 Importar recetas</button>
-      <button data-tab="pareja">👩‍❤️‍👨 Pareja</button>
+      <button data-tab="pareja">🔗 Compartir</button>
     </div>
     <div id="qc-tool-backup">
       <div class="qc-tool-section">
@@ -285,37 +285,56 @@ Reglas:
         <div id="qc-import-dupes" style="display:none;margin-top:10px"></div>
       </div>
     </div>
+   
     <div id="qc-tool-pareja" style="display:none">
       <div class="qc-tool-section">
-        <h4>👩‍❤️‍👨 Compartir en familia</h4>
-        <p style="font-size:11px;opacity:.7;margin:0 0 8px 0">Configura cómo te llamas y cómo se llama tu pareja. El botón saldrá con su nombre.</p>
+        <h4>🔗 Compartir</h4>
+        <p style="font-size:11px;opacity:.7;margin:0 0 8px 0">Configura quién eres y con quién compartes. Sirve para recetas y para menú semanal.</p>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
           <div><label style="font-size:10px;font-weight:800;opacity:.6">YO SOY</label><input id="qc-pareja-yo" placeholder="Ej: Jose / Papá" style="width:100%;padding:10px;border-radius:12px;border:1px solid #e7dcc9;font-size:12px;font-weight:700;margin-top:2px"></div>
-          <div><label style="font-size:10px;font-weight:800;opacity:.6">PAREJA ES</label><input id="qc-pareja-nombre" placeholder="Ej: Alicia / Mamá" style="width:100%;padding:10px;border-radius:12px;border:1px solid #e7dcc9;font-size:12px;font-weight:700;margin-top:2px"></div>
+          <div><label style="font-size:10px;font-weight:800;opacity:.6">COMPARTO CON</label><input id="qc-pareja-nombre" placeholder="Ej: Alicia / Mamá" style="width:100%;padding:10px;border-radius:12px;border:1px solid #e7dcc9;font-size:12px;font-weight:700;margin-top:2px"></div>
         </div>
-        <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+        <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
           <button data-preset-yo="Papá" data-preset-pareja="Mamá" class="qc-preset-fam" style="padding:6px 10px;border-radius:999px;background:#fffaf0;border:1px solid #e7dcc9;font-size:11px;font-weight:700">Papá → Mamá</button>
           <button data-preset-yo="Mamá" data-preset-pareja="Papá" class="qc-preset-fam" style="padding:6px 10px;border-radius:999px;background:#fffaf0;border:1px solid #e7dcc9;font-size:11px;font-weight:700">Mamá → Papá</button>
           <button data-preset-yo="Jose" data-preset-pareja="Alicia" class="qc-preset-fam" style="padding:6px 10px;border-radius:999px;background:#fffaf0;border:1px solid #e7dcc9;font-size:11px;font-weight:700">Jose → Alicia</button>
           <button id="qc-pareja-save" style="padding:6px 12px;border-radius:999px;background:#111827;color:#fff;border:1px solid #111827;font-weight:800;font-size:11px">💾 Guardar</button>
         </div>
         <div id="qc-pareja-info" style="font-size:11px;margin:6px 0;opacity:.8"></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-          <button id="qc-pareja-compartir" style="padding:10px 14px;border-radius:12px;background:#25D366;color:#fff;border:1px solid #25D366;font-weight:800;font-size:12px">📤 Compartir novedades por WhatsApp</button>
-          <button id="qc-pareja-copiar" style="padding:10px 14px;border-radius:12px;background:#111827;color:#fff;border:1px solid #111827;font-weight:800;font-size:12px">📋 Copiar JSON novedades</button>
-          <button id="qc-pareja-marcar" style="padding:10px 14px;border-radius:12px;background:#fff;border:1px solid #e7dcc9;font-weight:800;font-size:11px">✅ Marcar como compartido</button>
+
+        <!-- Subtabs Recetas / Menú -->
+        <div style="display:flex;gap:6px;margin:12px 0 8px 0">
+          <button id="qc-subtab-recetas" class="qc-subtab active" style="flex:1;padding:8px;border-radius:999px;background:#111827;color:#fff;border:1px solid #111827;font-weight:800;font-size:11px">🍽️ Recetas</button>
+          <button id="qc-subtab-menu" class="qc-subtab" style="flex:1;padding:8px;border-radius:999px;background:#fff;border:1px solid #e7dcc9;font-weight:800;font-size:11px">📅 Menú semanal</button>
         </div>
-        <div id="qc-pareja-status" style="font-size:11px;margin-top:8px;white-space:pre-wrap"></div>
-        <div id="qc-pareja-lista" style="margin-top:10px;max-height:160px;overflow:auto;font-size:11px"></div>
-        <hr style="margin:10px 0">
-        <p style="font-size:10px;opacity:.6">Al recibir tu pareja: que abra ⚙️ > Importar recetas y pegue el JSON. Si es menú semanal, se importa como menú actual.</p>
-      </div>
-      <div class="qc-tool-section">
-        <h4>📥 Recibir de pareja</h4>
-        <p style="font-size:11px;opacity:.7">Si te han pasado un JSON de novedades, impórtalo aquí (usa la pestaña Importar recetas).</p>
-        <button id="qc-pareja-ir-import" style="padding:8px 12px;border-radius:10px;background:#fff;border:1px solid #e7dcc9;font-weight:700;font-size:11px">Ir a Importar</button>
+
+        <!-- TAB RECETAS -->
+        <div id="qc-pareja-tab-recetas">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <button id="qc-pareja-compartir" style="padding:10px 14px;border-radius:12px;background:#25D366;color:#fff;border:1px solid #25D366;font-weight:800;font-size:12px">📤 Compartir novedades</button>
+            <button id="qc-pareja-copiar" style="padding:10px 14px;border-radius:12px;background:#111827;color:#fff;border:1px solid #111827;font-weight:800;font-size:12px">📋 Copiar JSON</button>
+            <button id="qc-pareja-marcar" style="padding:10px 14px;border-radius:12px;background:#fff;border:1px solid #e7dcc9;font-weight:800;font-size:11px">✅ Marcar compartido</button>
+          </div>
+          <div id="qc-pareja-status" style="font-size:11px;margin-top:8px;white-space:pre-wrap"></div>
+          <div id="qc-pareja-lista" style="margin-top:10px;max-height:160px;overflow:auto;font-size:11px"></div>
+        </div>
+
+        <!-- TAB MENU -->
+        <div id="qc-pareja-tab-menu" style="display:none">
+          <div id="qc-menu-resumen" style="font-size:11px;background:#fffaf0;border:1px solid #e7dcc9;border-radius:12px;padding:8px;margin-bottom:8px;white-space:pre-wrap;max-height:160px;overflow:auto">Sin menú generado</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+            <button id="qc-menu-compartir" style="padding:10px 14px;border-radius:12px;background:#25D366;color:#fff;border:1px solid #25D366;font-weight:800;font-size:12px">📤 Compartir menú WhatsApp</button>
+            <button id="qc-menu-copiar" style="padding:10px 14px;border-radius:12px;background:#111827;color:#fff;border:1px solid #111827;font-weight:800;font-size:12px">📋 Copiar JSON menú</button>
+            <button id="qc-menu-importar" style="padding:10px 14px;border-radius:12px;background:#fff;border:1px solid #e7dcc9;font-weight:800;font-size:11px">📥 Importar menú pegado</button>
+          </div>
+          <div id="qc-menu-status" style="font-size:11px;margin-top:6px;white-space:pre-wrap"></div>
+          <details style="margin-top:8px"><summary style="font-size:11px;font-weight:800;cursor:pointer">Ver JSON menú</summary><pre id="qc-menu-json" style="font-size:9px;background:#fff;border:1px solid #e7dcc9;border-radius:8px;padding:6px;white-space:pre-wrap;max-height:200px;overflow:auto"></pre></details>
+          <p style="font-size:10px;opacity:.6;margin-top:8px">Al recibir: el otro abre esta misma sección → Menú semanal → pega el JSON en Importar recetas o usa el botón Importar menú pegado. Se reemplaza su menú actual por el tuyo.</p>
+        </div>
+
       </div>
     </div>
+</div>
 
   </div>
 </div>
@@ -342,6 +361,7 @@ const setCD=o=>localStorage.setItem(KEY_CD, JSON.stringify(o));
 const getBase=()=>{try{return getStore()?.comensales||4}catch{return 4;}};
 
 
+
 function initPareja(){
   const KEY_NOMBRE='qc-pareja-nombre';
   const KEY_YO='qc-pareja-yo';
@@ -355,25 +375,57 @@ function initPareja(){
   const btnCompartir=document.getElementById('qc-pareja-compartir');
   const btnCopiar=document.getElementById('qc-pareja-copiar');
   const btnMarcar=document.getElementById('qc-pareja-marcar');
-  const btnIrImport=document.getElementById('qc-pareja-ir-import');
+  // subtabs
+  const subRec=document.getElementById('qc-subtab-recetas');
+  const subMenu=document.getElementById('qc-subtab-menu');
+  const tabRec=document.getElementById('qc-pareja-tab-recetas');
+  const tabMenu=document.getElementById('qc-pareja-tab-menu');
+  // menu tab
+  const menuResumen=document.getElementById('qc-menu-resumen');
+  const btnMenuCompartir=document.getElementById('qc-menu-compartir');
+  const btnMenuCopiar=document.getElementById('qc-menu-copiar');
+  const btnMenuImportar=document.getElementById('qc-menu-importar');
+  const menuStatus=document.getElementById('qc-menu-status');
+  const menuJsonPre=document.getElementById('qc-menu-json');
+
   if(!nombreInput) return false;
   const getNombre=()=>localStorage.getItem(KEY_NOMBRE)||'';
   const getYo=()=>localStorage.getItem(KEY_YO)||'';
   const getLast=()=>{try{return JSON.parse(localStorage.getItem(KEY_LAST)||'null')}catch{return null}};
   const setLast=(o)=>localStorage.setItem(KEY_LAST, JSON.stringify(o));
+  const getTurnos=()=>{try{return JSON.parse(localStorage.getItem('qc-turnos-semana')||'{}')}catch{return {}}};
+  const getCD=()=>{try{return JSON.parse(localStorage.getItem('qc-comensales-dia')||'{}')}catch{return {}}};
   if(yoInput) yoInput.value=getYo();
   nombreInput.value=getNombre();
+
+  function switchSub(tab){
+    if(!subRec||!subMenu) return;
+    if(tab==='menu'){
+      subMenu.classList.add('active'); subMenu.style.background='#111827'; subMenu.style.color='#fff';
+      subRec.classList.remove('active'); subRec.style.background='#fff'; subRec.style.color='#111827';
+      if(tabRec) tabRec.style.display='none'; if(tabMenu) tabMenu.style.display='block';
+      try{updateMenuResumen();}catch(e){}
+    } else {
+      subRec.classList.add('active'); subRec.style.background='#111827'; subRec.style.color='#fff';
+      subMenu.classList.remove('active'); subMenu.style.background='#fff'; subMenu.style.color='#111827';
+      if(tabMenu) tabMenu.style.display='none'; if(tabRec) tabRec.style.display='block';
+    }
+  }
+  if(subRec && !subRec._qc){ subRec._qc=true; subRec.onclick=()=>switchSub('recetas'); }
+  if(subMenu && !subMenu._qc){ subMenu._qc=true; subMenu.onclick=()=>switchSub('menu'); }
+
   document.querySelectorAll('.qc-preset-fam').forEach(b=>{
     if(b._qc) return; b._qc=true;
     b.onclick=()=>{
       const yo=b.dataset.presetYo; const pareja=b.dataset.presetPareja;
       if(yoInput) yoInput.value=yo; nombreInput.value=pareja;
       localStorage.setItem(KEY_YO, yo); localStorage.setItem(KEY_NOMBRE, pareja);
-      try{updateParejaInfo();}catch(e){}
+      try{updateParejaInfo(); updateMenuResumen();}catch(e){}
       if(info) info.textContent='Guardado: '+yo+' → '+pareja;
     };
   });
-  if(saveBtn && !saveBtn._qc){ saveBtn._qc=true; saveBtn.onclick=()=>{ const yo=(yoInput&&yoInput.value||'').trim(); const pareja=nombreInput.value.trim(); if(yo) localStorage.setItem(KEY_YO, yo); localStorage.setItem(KEY_NOMBRE, pareja); if(info) info.textContent='Guardado: '+(yo||'Yo')+' → '+(pareja||'pareja'); try{updateParejaInfo();}catch(e){} }; }
+  if(saveBtn && !saveBtn._qc){ saveBtn._qc=true; saveBtn.onclick=()=>{ const yo=(yoInput&&yoInput.value||'').trim(); const pareja=nombreInput.value.trim(); if(yo) localStorage.setItem(KEY_YO, yo); localStorage.setItem(KEY_NOMBRE, pareja); if(info) info.textContent='Guardado: '+(yo||'Yo')+' → '+(pareja||'pareja'); try{updateParejaInfo(); updateMenuResumen();}catch(e){} }; }
+
   function updateParejaInfo(){
     const s=getStore(); if(!s){ if(info) info.textContent='Abre app una vez'; return {newRecetas:[], last:null}; }
     const last=getLast(); const total=(s.recetas||[]).length; const lastAt=last&&last.at? new Date(last.at).toLocaleString() : 'nunca'; const lastCount=last&&last.recetaIds? last.recetaIds.length:0;
@@ -385,13 +437,122 @@ function initPareja(){
     if(lista){ if(newRecetas.length){ lista.innerHTML=newRecetas.map(r=> '• '+(r.emoji||'🍽️')+' '+r.nombre).join('<br>'); } else { lista.innerHTML='<span style="opacity:.6">No hay nuevas. Cuando '+yo+' añada, aquí saldrán para '+pareja+'.</span>'; } }
     return {newRecetas, last};
   }
-  if(btnIrImport && !btnIrImport._qc){ btnIrImport._qc=true; btnIrImport.onclick=()=>{ document.querySelectorAll('#qc-tools-tabs button').forEach(x=>x.classList.remove('active')); const imp=document.querySelector('#qc-tools-tabs button[data-tab="import"]'); if(imp) imp.classList.add('active'); const bkp=document.getElementById('qc-tool-backup'); if(bkp) bkp.style.display='none'; const impDiv=document.getElementById('qc-tool-import'); if(impDiv) impDiv.style.display='block'; const par=document.getElementById('qc-tool-pareja'); if(par) par.style.display='none'; }; }
-  function buildPayload(){ const s=getStore(); if(!s) return null; const d=updateParejaInfo(); const nr=d.newRecetas; if(!nr.length) return {recetas:[], menu:s.menu||[], vacio:true}; return {recetas:nr, menu:s.menu||[], fecha:new Date().toISOString(), de:getYo()||'QUE COMEMOS', para:getNombre()||'pareja'}; }
-  if(btnCompartir && !btnCompartir._qc){ btnCompartir._qc=true; btnCompartir.onclick=()=>{ const p=buildPayload(); if(!p){ if(status) status.textContent='No hay datos'; return; } if(p.vacio){ if(status) status.textContent='No hay novedades.'; return; } const pareja=getNombre()||'tu pareja'; const yo=getYo()||''; const jsonStr=JSON.stringify(p.recetas, null, 2); const resumen=p.recetas.map(r=> '• '+r.nombre).join('\n'); const texto='Hola '+pareja+'! '+(yo? 'Soy '+yo+'. ':'')+'Te paso '+p.recetas.length+' recetas nuevas:\n'+resumen+'\n\nPega JSON en ⚙️ > Importar:\n\n'+jsonStr.substring(0,3000)+(jsonStr.length>3000? '... usa Copiar':''); const wa='https://wa.me/?text='+encodeURIComponent(texto); if(status) status.textContent='Abriendo WhatsApp para '+pareja+'...'; window.open(wa, '_blank'); }; }
-  if(btnCopiar && !btnCopiar._qc){ btnCopiar._qc=true; btnCopiar.onclick=()=>{ const p=buildPayload(); if(!p||p.vacio){ if(status) status.textContent='No hay novedades'; return; } const jsonStr=JSON.stringify(p.recetas, null, 2); const pareja=getNombre()||'pareja'; navigator.clipboard.writeText(jsonStr).then(()=>{ if(status) status.textContent='✅ JSON copiado para '+pareja; }).catch(()=>{ const ta=document.getElementById('qc-import-text'); if(ta){ ta.value=jsonStr; if(status) status.textContent='JSON en Importar para '+pareja; } }); }; }
-  if(btnMarcar && !btnMarcar._qc){ btnMarcar._qc=true; btnMarcar.onclick=()=>{ const s=getStore(); if(!s){ if(status) status.textContent='No hay datos'; return; } const ids=(s.recetas||[]).map(r=>r.id); setLast({at:Date.now(), recetaIds:ids}); if(status) status.textContent='✅ Marcado como compartido con '+(getNombre()||'pareja')+' ('+ids.length+')'; updateParejaInfo(); }; }
-  updateParejaInfo(); return true;
+
+  function getMenuPayload(){
+    const s=getStore(); if(!s) return null;
+    const menu=s.menu||[]; if(!menu.length) return {vacio:true};
+    const payload={
+      tipo:'menu_semanal',
+      version:1,
+      fecha:new Date().toISOString(),
+      de:getYo()||'QUE COMEMOS',
+      para:getNombre()||'pareja',
+      comensales:s.comensales||2,
+      temporadaSel:s.temporadaSel||'auto',
+      equilibrio:s.equilibrio||{},
+      menu:menu,
+      turnos:getTurnos(),
+      comensalesDia:getCD()
+    };
+    return payload;
+  }
+
+  function updateMenuResumen(){
+    const p=getMenuPayload(); if(!p){ if(menuResumen) menuResumen.textContent='Sin datos'; return; }
+    if(p.vacio){ if(menuResumen) menuResumen.textContent='Aún no has generado semana. Ve a Menú semanal → Generar semana.'; if(menuJsonPre) menuJsonPre.textContent=''; return; }
+    const dias=p.menu.map(d=>{
+      const recId=(id)=>{try{const rs=getStore().recetas||[]; const r=rs.find(x=>x.id===id); return r? r.nombre : '-';}catch{return '-'}};
+      return d.dia+': '+recId(d.comidaId)+' | '+recId(d.cenaId);
+    }).join('\n');
+    const resumen='De: '+(p.de||'-')+' → Para: '+(p.para||'-')+'\nComensales: '+p.comensales+' | Temporada: '+p.temporadaSel+'\nFecha: '+new Date(p.fecha).toLocaleString()+'\n\n'+dias;
+    if(menuResumen) menuResumen.textContent=resumen;
+    if(menuJsonPre) menuJsonPre.textContent=JSON.stringify(p, null, 2);
+  }
+
+  function buildPayloadRecetas(){ const s=getStore(); if(!s) return null; const d=updateParejaInfo(); const nr=d.newRecetas; if(!nr.length) return {recetas:[], menu:s.menu||[], vacio:true}; return {recetas:nr, menu:s.menu||[], fecha:new Date().toISOString(), de:getYo()||'QUE COMEMOS', para:getNombre()||'pareja'}; }
+
+  if(btnCompartir && !btnCompartir._qc){ btnCompartir._qc=true; btnCompartir.onclick=()=>{ const p=buildPayloadRecetas(); if(!p){ if(status) status.textContent='No hay datos'; return; } if(p.vacio){ if(status) status.textContent='No hay novedades.'; return; } const pareja=getNombre()||'tu pareja'; const yo=getYo()||''; const jsonStr=JSON.stringify(p.recetas, null, 2); const resumen=p.recetas.map(r=> '• '+r.nombre).join('\n'); const texto='Hola '+pareja+'! '+(yo? 'Soy '+yo+'. ':'')+'Te paso '+p.recetas.length+' recetas nuevas:\n'+resumen+'\n\nPega JSON en ⚙️ > Importar:\n\n'+jsonStr.substring(0,3000)+(jsonStr.length>3000? '... usa Copiar':''); const wa='https://wa.me/?text='+encodeURIComponent(texto); if(status) status.textContent='Abriendo WhatsApp para '+pareja+'...'; window.open(wa, '_blank'); }; }
+  if(btnCopiar && !btnCopiar._qc){ btnCopiar._qc=true; btnCopiar.onclick=()=>{ const p=buildPayloadRecetas(); if(!p||p.vacio){ if(status) status.textContent='No hay novedades'; return; } const jsonStr=JSON.stringify(p.recetas, null, 2); const pareja=getNombre()||'pareja'; navigator.clipboard.writeText(jsonStr).then(()=>{ if(status) status.textContent='✅ JSON copiado para '+pareja; }).catch(()=>{ const ta=document.getElementById('qc-import-text'); if(ta){ ta.value=jsonStr; if(status) status.textContent='JSON en Importar para '+pareja; } }); }; }
+  if(document.getElementById('qc-pareja-marcar') && !document.getElementById('qc-pareja-marcar')._qc){ const btnMarcar=document.getElementById('qc-pareja-marcar'); btnMarcar._qc=true; btnMarcar.onclick=()=>{ const s=getStore(); if(!s){ if(status) status.textContent='No hay datos'; return; } const ids=(s.recetas||[]).map(r=>r.id); setLast({at:Date.now(), recetaIds:ids}); if(status) status.textContent='✅ Marcado como compartido con '+(getNombre()||'pareja')+' ('+ids.length+')'; updateParejaInfo(); }; }
+
+  if(btnMenuCompartir && !btnMenuCompartir._qc){ btnMenuCompartir._qc=true; btnMenuCompartir.onclick=()=>{ const p=getMenuPayload(); if(!p||p.vacio){ if(menuStatus) menuStatus.textContent='Primero genera semana'; return; } const pareja=getNombre()||'pareja'; const yo=getYo()||''; const jsonStr=JSON.stringify(p, null, 2); const resumen=p.menu.map(d=> d.dia+': '+d.comidaId+'/'+d.cenaId).length+' días'; const texto='Hola '+pareja+'! '+(yo? 'Soy '+yo+'. ':'')+'Te paso mi menú semanal ('+p.menu.length+' días, '+p.comensales+' comensales).\nPega este JSON en ⚙️ > Compartir > Menú semanal > Importar menú pegado o en Importar recetas.\n\n'+jsonStr.substring(0,2500)+(jsonStr.length>2500? '\n... JSON largo, usa Copiar JSON menú':''); const wa='https://wa.me/?text='+encodeURIComponent(texto); if(menuStatus) menuStatus.textContent='Abriendo WhatsApp para '+pareja+'...'; window.open(wa, '_blank'); }; }
+  if(btnMenuCopiar && !btnMenuCopiar._qc){ btnMenuCopiar._qc=true; btnMenuCopiar.onclick=()=>{ const p=getMenuPayload(); if(!p||p.vacio){ if(menuStatus) menuStatus.textContent='Sin menú'; return; } const jsonStr=JSON.stringify(p, null, 2); navigator.clipboard.writeText(jsonStr).then(()=>{ if(menuStatus) menuStatus.textContent='✅ JSON menú copiado para '+(getNombre()||'pareja'); }).catch(()=>{ if(menuStatus) menuStatus.textContent='No se pudo copiar, copia del recuadro.'; }); }; }
+  if(btnMenuImportar && !btnMenuImportar._qc){ btnMenuImportar._qc=true; btnMenuImportar.onclick=()=>{ const txt=prompt('Pega JSON del menú semanal que te pasaron:'); if(!txt) return; try{ const o=JSON.parse(txt); if(o.tipo!=='menu_semanal' && !o.menu){ if(menuStatus) menuStatus.textContent='JSON no es menú'; return; } const s=getStore(); if(!s){ if(menuStatus) menuStatus.textContent='No hay store'; return; } if(o.menu){ s.menu=o.menu; if(typeof o.comensales!=='undefined') s.comensales=o.comensales; if(o.temporadaSel) s.temporadaSel=o.temporadaSel; if(o.equilibrio) s.equilibrio=o.equilibrio; localStorage.setItem('que-comemos-expert-v2', JSON.stringify(s)); if(o.turnos) localStorage.setItem('qc-turnos-semana', JSON.stringify(o.turnos)); if(o.comensalesDia) localStorage.setItem('qc-comensales-dia', JSON.stringify(o.comensalesDia)); if(menuStatus) menuStatus.textContent='✅ Menú de '+(o.de||'pareja')+' importado ('+o.menu.length+' días). Recarga si no ves cambios.'; setTimeout(()=>location.reload(), 800); } }catch(e){ if(menuStatus) menuStatus.textContent='JSON inválido: '+e.message; } }; }
+
+  // Hook importar general para detectar menú
+  const originalImportBtn=document.getElementById('qc-import-btn');
+  if(originalImportBtn && !originalImportBtn._qcMenuHook){
+    originalImportBtn._qcMenuHook=true;
+    const prev=originalImportBtn.onclick;
+    // We keep existing importer logic, but also check menu payload in preview
+    const checkMenuImport=()=>{
+      try{
+        const ta=document.getElementById('qc-import-text'); if(!ta) return false;
+        const txt=ta.value.trim(); if(!txt) return false;
+        const o=JSON.parse(txt); 
+        if(o.tipo==='menu_semanal' && o.menu){
+          if(confirm('Este JSON es un MENÚ SEMANAL de '+(o.de||'pareja')+' ('+o.menu.length+' días). ¿Importar y reemplazar tu menú actual?')){
+            const s=getStore(); s.menu=o.menu; if(o.comensales) s.comensales=o.comensales; if(o.temporadaSel) s.temporadaSel=o.temporadaSel; if(o.equilibrio) s.equilibrio=o.equilibrio;
+            localStorage.setItem('que-comemos-expert-v2', JSON.stringify(s));
+            if(o.turnos) localStorage.setItem('qc-turnos-semana', JSON.stringify(o.turnos));
+            if(o.comensalesDia) localStorage.setItem('qc-comensales-dia', JSON.stringify(o.comensalesDia));
+            alert('Menú importado'); location.reload();
+            return true;
+          }
+        }
+        // also if array contains object with tipo menu_semanal
+        if(Array.isArray(o) && o.length && o[0].tipo==='menu_semanal'){ /* same */ }
+      }catch(e){}
+      return false;
+    };
+    // wrap
+    const old=originalImportBtn.onclick;
+    originalImportBtn.onclick=(e)=>{
+      if(checkMenuImport()) return;
+      if(typeof old==='function') return old(e);
+    };
+  }
+
+  updateParejaInfo(); updateMenuResumen(); return true;
 }
+
+// Quick share button next to Comensales
+function initQuickShareMenu(){
+  let tries=0;
+  const iv=setInterval(()=>{
+    tries++;
+    const comensalesRow=document.querySelector('div.bg-white.rounded-xl.border.p-4.space-y-4 > div.flex.items-center.justify-between');
+    if(!comensalesRow){ if(tries>50) clearInterval(iv); return; }
+    if(document.getElementById('qc-quick-share-menu')){ clearInterval(iv); return; }
+    const btn=document.createElement('button');
+    btn.id='qc-quick-share-menu';
+    btn.textContent='📤 Compartir menú';
+    btn.style.cssText='margin-left:8px;padding:6px 10px;border-radius:999px;background:#fff;border:1px solid #e7dcc9;font-weight:800;font-size:11px;cursor:pointer';
+    btn.onclick=()=>{
+      // open herramientas -> compartir -> menu tab
+      try{
+        const herramientasBtn=document.querySelector('#qc-tools-tabs button[data-tab="pareja"]')||document.querySelector('button[data-tab="pareja"]');
+        // open config modal
+        const openTools=()=>{ const gear=document.querySelector('[data-testid="gear"]')||document.getElementById('qc-open-tools')||document.querySelector('button:has(> svg)') ; };
+        // Simple: scroll to and open modal via existing global
+        const modal=document.getElementById('qc-tools-modal'); if(modal) modal.classList.add('open');
+        // activate pareja tab
+        setTimeout(()=>{
+          document.querySelectorAll('#qc-tools-tabs button').forEach(x=>x.classList.remove('active'));
+          const imp=document.querySelector('#qc-tools-tabs button[data-tab="pareja"]'); if(imp) imp.classList.add('active');
+          document.getElementById('qc-tool-backup').style.display='none';
+          const impDiv=document.getElementById('qc-tool-import'); if(impDiv) impDiv.style.display='none';
+          const par=document.getElementById('qc-tool-pareja'); if(par) par.style.display='block';
+          // switch to menu subtab
+          const subM=document.getElementById('qc-subtab-menu'); if(subM) subM.click();
+        }, 100);
+      }catch(e){}
+    };
+    comensalesRow.appendChild(btn);
+    clearInterval(iv);
+  }, 400);
+}
+
 
 
 
@@ -431,7 +592,7 @@ function initTools(){
     };
   });
   document.getElementById('qc-restore-file') && (document.getElementById('qc-restore-btn').onclick=()=>document.getElementById('qc-restore-file').click());
-  initImporter(); initIAImport();
+  initImporter(); initIAImport(); initQuickShareMenu();
   initPareja();
   updateInfo(); updateInfoVariabilidad();
   return true;
