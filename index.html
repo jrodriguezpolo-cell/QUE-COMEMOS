@@ -3,6 +3,66 @@
 <title>QUE COMEMOS 95G LIGERA</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>body{background:#fef7ed} .bg-\[\#fef7ed\]{background:#fef7ed}</style>
+
+<style id="qc-fix-comensales-v3">
+/* Comensales compacto 1/3 - solo primera fila */
+div.bg-white.rounded-xl.border.p-4.space-y-4 > div.flex.items-center.justify-between {
+  max-width: 280px !important;
+  padding: 6px 10px !important;
+  background: #fef7ed !important;
+  border: 1px solid #e7dcc9 !important;
+  border-radius: 14px !important;
+  gap: 8px !important;
+}
+div.bg-white.rounded-xl.border.p-4.space-y-4 > div.flex.items-center.justify-between .font-bold.text-\[17px\]{
+  font-size: 13px !important;
+}
+/* botones - y + */
+div.bg-white.rounded-xl.border.p-4.space-y-4 > div.flex.items-center.justify-between button.h-\[56px\].w-\[56px\]{
+  height: 30px !important;
+  width: 30px !important;
+  min-height: 30px !important;
+  font-size: 14px !important;
+  border-radius: 8px !important;
+}
+div.bg-white.rounded-xl.border.p-4.space-y-4 > div.flex.items-center.justify-between div.h-\[56px\].w-\[72px\]{
+  height: 30px !important;
+  width: 38px !important;
+  min-height: 30px !important;
+  font-size: 13px !important;
+  border-radius: 8px !important;
+}
+/* Restaurar grid Temporada / Generar / Turnos a layout original */
+div.bg-white.rounded-xl.border.p-4.space-y-4 > div.grid,
+div.bg-white.rounded-xl.border.p-4.space-y-4 > div.grid.md\:grid-cols-2{
+  display: grid !important;
+  grid-template-columns: 1fr auto auto !important;
+  gap: 8px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+@media (max-width: 640px){
+  div.bg-white.rounded-xl.border.p-4.space-y-4 > div.grid,
+  div.bg-white.rounded-xl.border.p-4.space-y-4 > div.grid.md\:grid-cols-2{
+    grid-template-columns: 1fr auto !important;
+  }
+}
+/* Rotar, Dieta, Compra fila - asegurar tamaño normal */
+div.bg-white.rounded-xl.border.p-4.space-y-4 > div.flex.gap-2.flex-wrap,
+div.bg-white.rounded-xl.border.p-4.space-y-4 > div:last-child.flex{
+  width: 100% !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+}
+div.bg-white.rounded-xl.border.p-4.space-y-4 > div.flex.gap-2.flex-wrap button,
+div.bg-white.rounded-xl.border.p-4.space-y-4 > div:last-child.flex button{
+  height: auto !important;
+  padding: 8px 10px !important;
+  font-size: 12px !important;
+}
+</style>
+
 <style id="qc-css-only-fix">
   @media (max-width: 640px) {
     /* Evitar que Turnos salte a otra línea */
