@@ -646,8 +646,33 @@ function updateInfo(){
 let pendingImport=[];
 function normalizeReceta(r,i){
   const id=Date.now()+i+Math.floor(Math.random()*1000);
-  return { id:id, nombre:(r.nombre||r.titulo||'Receta importada').slice(0,80), emoji:r.emoji||'🍽️', tipo:r.tipo||'principal', grupo:r.grupo||'otro', temporada:r.temporada||'todo_año', momento:r.momento||'ambas', necesitaAcomp:!!r.necesitaAcomp, kcal:+r.kcal||200, prot:+r.prot||10, grasa:+r.grasa||8, hc:+r.hc||15, ing:Array.isArray(r.ing)?r.ing: (r.ingredientes||[]).map(x=> typeof x==='string'?{n:x,c:1,u:'ud'}:x ), aptaExpert:!!r.aptaExpert, tiempoClasico:r.tiempoClasico||r.tiempo||'20min', tiempoExpert:r.tiempoExpert||'', pasosClasico:Array.isArray(r.pasosClasico)?r.pasosClasico: (r.pasos||r.instrucciones||[]), pasosExpert:Array.isArray(r.pasosExpert)?r.pasosExpert:[] };
+  const normIng = Array.isArray(r.ing)?r.ing: (r.ingredientes||[]).map(x=> typeof x==='string'?{n:x,c:1,u:'ud'}:x );
+  return { 
+    id:id, 
+    nombre:(r.nombre||r.titulo||'Receta importada').slice(0,80), 
+    emoji:r.emoji||'🍽️', 
+    tipo:r.tipo||'principal', 
+    grupo:r.grupo||'otro', 
+    temporada:r.temporada||'todo_año', 
+    momento:r.momento||'ambas', 
+    necesitaAcomp:!!r.necesitaAcomp, 
+    kcal:+r.kcal||200, 
+    prot:+r.prot||10, 
+    grasa:+r.grasa||8, 
+    hc:+r.hc||15, 
+    ing:normIng, 
+    aptaExpert:!!r.aptaExpert, 
+    tiempoClasico:r.tiempoClasico||r.tiempo||'20min', 
+    tiempoExpert:r.tiempoExpert||'', 
+    pasosClasico:Array.isArray(r.pasosClasico)?r.pasosClasico: (r.pasos||r.instrucciones||[]), 
+    pasosExpert:Array.isArray(r.pasosExpert)?r.pasosExpert:[],
+    pasosClasicoDetallado:Array.isArray(r.pasosClasicoDetallado)?r.pasosClasicoDetallado: (Array.isArray(r.pasosClasico)?[]:[]),
+    pasosExpertDetallado:Array.isArray(r.pasosExpertDetallado)?r.pasosExpertDetallado:[],
+    // compat: si viene solo pasos y son largos, los guardamos como detallado también
+    ...(r.pasosClasicoDetallado?{}: (r.pasosDetallado?{pasosClasicoDetallado:r.pasosDetallado}:{}))
+  };
 }
+
 function initImporter(){
   const fileInput=document.getElementById('qc-import-file');
   const textArea=document.getElementById('qc-import-text');
@@ -666,16 +691,38 @@ function initImporter(){
     pendingImport.forEach((r,i)=>{ const norm=normalizeReceta(r,i); const key=norm.nombre.toLowerCase().trim(); if(baseByName[key]) dupes.push({existing:baseByName[key], incoming:norm}); else newOnes.push(norm); });
     if(dupes.length){
       dupesDiv.style.display='block';
-      dupesDiv.innerHTML='<b>Existen ('+dupes.length+'):</b>' + dupes.map((d,idx)=>`<div style="border:1px solid #e7dcc9;border-radius:10px;padding:8px;margin:6px 0;background:#fffaf0"><b>${d.existing.nombre}</b><br><label style="font-size:11px"><input type="radio" name="dupe-${idx}" value="skip" checked> Omitir</label><label style="font-size:11px;margin-left:8px"><input type="radio" name="dupe-${idx}" value="replace"> Modificar</label><label style="font-size:11px;margin-left:8px"><input type="radio" name="dupe-${idx}" value="add"> Añadir (2)</label></div>`).join('') + `<button id="qc-dupe-confirm" style="margin-top:6px;padding:8px 12px;border-radius:10px;background:#111827;color:#fff;font-weight:700">Confirmar</button>`;
+      const bulkHtml = `
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;padding:8px;background:#fff;border:1px solid #e7dcc9;border-radius:12px">
+          <span style="font-size:11px;font-weight:800;width:100%">Hay ${dupes.length} duplicadas. Aplicar a todas:</span>
+          <button id="qc-bulk-skip" style="padding:6px 10px;border-radius:999px;background:#fff;border:1px solid #e7dcc9;font-weight:800;font-size:11px">⏭️ Omitir todas</button>
+          <button id="qc-bulk-replace" style="padding:6px 10px;border-radius:999px;background:#111827;color:#fff;border:1px solid #111827;font-weight:800;font-size:11px">🔄 Modificar todas</button>
+          <button id="qc-bulk-add" style="padding:6px 10px;border-radius:999px;background:#fffaf0;border:1px solid #e7dcc9;font-weight:800;font-size:11px">➕ Duplicar todas</button>
+        </div>
+      `;
+      dupesDiv.innerHTML= bulkHtml + '<b style="font-size:11px">Detalle por receta (puedes ajustar individual):</b>' + dupes.map((d,idx)=>`<div style="border:1px solid #e7dcc9;border-radius:10px;padding:8px;margin:6px 0;background:#fffaf0"><b>${d.existing.nombre}</b> <span style="font-size:10px;opacity:.6">(${d.existing.tipo}/${d.existing.grupo}) → nueva: ${d.incoming.pasosClasico?.length||0} pasos cortos / ${d.incoming.pasosClasicoDetallado?.length||0} detallados</span><br><label style="font-size:11px"><input type="radio" name="dupe-${idx}" value="skip" checked> Omitir</label><label style="font-size:11px;margin-left:8px"><input type="radio" name="dupe-${idx}" value="replace"> Modificar (mantiene id, reemplaza pasos)</label><label style="font-size:11px;margin-left:8px"><input type="radio" name="dupe-${idx}" value="add"> Duplicar (2)</label></div>`).join('') + `<button id="qc-dupe-confirm" style="margin-top:8px;padding:10px 14px;border-radius:12px;background:#111827;color:#fff;font-weight:800;width:100%">✅ Confirmar importación (${newOnes.length} nuevas + ${dupes.length} duplicadas según elección)</button>`;
+
+      setTimeout(()=>{
+        const setAll = (val)=>{
+          dupes.forEach((_,idx)=>{
+            const radio = document.querySelector(`input[name="dupe-${idx}"][value="${val}"]`);
+            if(radio) radio.checked=true;
+          });
+        };
+        document.getElementById('qc-bulk-skip')?.addEventListener('click',()=>setAll('skip'));
+        document.getElementById('qc-bulk-replace')?.addEventListener('click',()=>setAll('replace'));
+        document.getElementById('qc-bulk-add')?.addEventListener('click',()=>setAll('add'));
+      },100);
+
       document.getElementById('qc-dupe-confirm').onclick=()=>{
         let finalRecetas=[...baseR, ...newOnes];
-        dupes.forEach((d,idx)=>{ const sel=document.querySelector(`input[name="dupe-${idx}"]:checked`).value; if(sel==='skip') return; if(sel==='add'){ finalRecetas.push({...d.incoming, nombre:d.incoming.nombre+' (2)', id:Date.now()+idx+10000}); } if(sel==='replace'){ const i=finalRecetas.findIndex(r=>r.nombre.toLowerCase().trim()===d.existing.nombre.toLowerCase().trim()); if(i>=0) finalRecetas[i]={...finalRecetas[i], ...d.incoming, id:finalRecetas[i].id}; } });
-        store.recetas=finalRecetas; saveStore(store); status.textContent='✅ Total: '+finalRecetas.length+'. Recargando...'; setTimeout(()=>location.reload(),900);
+        dupes.forEach((d,idx)=>{ const sel=document.querySelector(`input[name="dupe-${idx}"]:checked`).value; if(sel==='skip') return; if(sel==='add'){ finalRecetas.push({...d.incoming, nombre:d.incoming.nombre+' (2)', id:Date.now()+idx+10000}); } if(sel==='replace'){ const i=finalRecetas.findIndex(r=>r.nombre.toLowerCase().trim()===d.existing.nombre.toLowerCase().trim()); if(i>=0) finalRecetas[i]={...finalRecetas[i], ...d.incoming, id:finalRecetas[i].id, nombre:finalRecetas[i].nombre}; } });
+        store.recetas=finalRecetas; saveStore(store); status.textContent='✅ Total: '+finalRecetas.length+' (nuevas: '+newOnes.length+'). Recargando...'; setTimeout(()=>location.reload(),900);
       };
       status.textContent='Hay '+dupes.length+' duplicadas abajo + '+newOnes.length+' nuevas.';
     }else{ store.recetas=[...baseR, ...newOnes]; saveStore(store); status.textContent='✅ Importadas '+newOnes.length+'. Total '+store.recetas.length; setTimeout(()=>location.reload(),800); }
   };
 }
+
 
 function initReplica(){let cd=getCD(); const base=getBase(); let ch=false; DIAS.forEach((_,i)=>{ if(!cd[i]){ cd[i]={comida:base,cena:base}; ch=true; } }); if(ch) setCD(cd);}
 function applyTurnos(){const t=getT(); const base=getBase(); let cd=getCD(); if(!Object.keys(cd).length) initReplica(); cd=getCD(); DIAS.forEach((_,i)=>{const turno=t[i]; if(turno==='Guardia') cd[i]={comida:Math.max(1,base-1),cena:Math.max(1,base-1)}; else if(turno==='Doblaje') cd[i]={comida:Math.max(1,base-1),cena:base}; else cd[i]={comida:base,cena:base};}); setCD(cd);}
