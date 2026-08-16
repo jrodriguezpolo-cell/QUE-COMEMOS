@@ -151,6 +151,7 @@ const setH=o=>localStorage.setItem(KEY_H, JSON.stringify(o));
 const getT=()=>{try{return JSON.parse(localStorage.getItem(KEY_T)||'{}')}catch{return {}}};
 const setT=o=>localStorage.setItem(KEY_T, JSON.stringify(o));
 const getStore=()=>{try{const v=localStorage.getItem('que-comemos-expert-v2')||localStorage.getItem('que-comemos-expert-v1');return v?JSON.parse(v):null}catch{return null}};
+const saveStore=(s)=>{try{localStorage.setItem('que-comemos-expert-v2', JSON.stringify(s)); localStorage.setItem('que-comemos-expert-v1', JSON.stringify(s));}catch(e){}};
 const getCD=()=>{try{return JSON.parse(localStorage.getItem(KEY_CD)||'{}')}catch{return {}}};
 const setCD=o=>localStorage.setItem(KEY_CD, JSON.stringify(o));
 
@@ -174,9 +175,48 @@ function initTools(){
   });
   document.getElementById('qc-restore-file') && (document.getElementById('qc-restore-btn').onclick=()=>document.getElementById('qc-restore-file').click());
   initImporter();
-  updateInfo();
+  updateInfo(); updateInfoVariabilidad();
   return true;
 }
+
+function updateInfoVariabilidad(){
+  try{
+    const s=getStore();
+    if(!s) return;
+    const recetas=s.recetas||[];
+    const porGrupo={};
+    recetas.forEach(r=>{ porGrupo[r.grupo]=(porGrupo[r.grupo]||0)+1; });
+    const eq=s.equilibrio||{};
+    const temporadaSel=s.temporadaSel||'todo_año';
+    const w=getW();
+    const h=getH();
+    const info=document.getElementById('qc-info');
+    if(!info) return;
+    // append diagnostic
+    let diag='<br><hr style="margin:8px 0"><b>Diagnóstico variación:</b><br>';
+    diag+=Object.entries(porGrupo).map(([k,v])=>`${k}: ${v}`).join(' | ')+'<br>';
+    diag+=`Temporada filtro: ${temporadaSel}<br>`;
+    diag+=`Rotar: ${w==0?'Off':w+'d'} - historial ${Object.keys(h).length} platos<br>`;
+    diag+=`Equilibrio pedido: ${JSON.stringify(eq)}<br>`;
+    // Calcular pool disponible aprox
+    const pool = recetas.filter(r=>{
+      if(temporadaSel!=='todo_año' && r.temporada!==temporadaSel && r.temporada!=='todo_año') return false;
+      if(w>0){
+        const last=h[r.nombre];
+        if(last){
+          const diff=(Date.now()-last)/(1000*60*60*24);
+          if(diff < w) return false;
+        }
+      }
+      return true;
+    }).length;
+    diag+=`Pool disponible con filtros actuales: <b>${pool}</b> de ${recetas.length} recetas<br>`;
+    if(pool < 20) diag+=`<span style="color:#b91c1c">⚠️ Muy poco margen para variar. Añade recetas o pon Rotar Off y Temporada todo_año</span>`;
+    else diag+=`<span style="color:#15803d">✓ Margen OK para variar</span>`;
+    info.innerHTML += diag;
+  }catch(e){}
+}
+
 function updateInfo(){
   const s=getStore();
   const info=document.getElementById('qc-info');
