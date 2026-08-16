@@ -27,28 +27,38 @@
 </style>
 
 
-<style id="qc-width-fix-v2">
+
+
+
+<style id="qc-ancho-dias-fix">
+/* Solo fix ancho días vs botonera - no tocar nada más */
 @media (max-width: 640px){
-  header div.max-w-\[1100px\],
+  /* El contenedor principal ya tiene px-4, asegurar que space-y-4 no haga overflow */
   main.max-w-\[1100px\]{
-    padding-left: 12px !important;
-    padding-right: 12px !important;
+    overflow-x: hidden;
   }
-  /* Todas las tarjetas del menú semanal mismo ancho */
-  main .bg-white.rounded-xl{
+  /* Grid que contiene Lunes, Martes... */
+  main div.grid.md\:grid-cols-2{
     width: 100% !important;
     max-width: 100% !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    box-sizing: border-box;
+    box-sizing: border-box !important;
+    min-width: 0 !important;
   }
-  #qc-fila2{
+  /* Tarjetas de día (Lunes, Martes...) */
+  main div.grid.md\:grid-cols-2 > div.bg-white.rounded-xl{
     width: 100% !important;
     max-width: 100% !important;
-    box-sizing: border-box;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
   }
-  /* Evita overflow horizontal de los días */
-  body { overflow-x: hidden; }
+  /* Asegurar que la tarjeta de controles (Comensales) tenga mismo ancho que días */
+  main div.space-y-4 > div.bg-white.rounded-xl.border.p-4{
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
 }
 </style>
 
