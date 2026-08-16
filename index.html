@@ -139,6 +139,7 @@ Error generating stack: `+u.message+`
     <div id="qc-tools-tabs">
       <button data-tab="backup" class="active">💾 Backup</button>
       <button data-tab="import">📥 Importar recetas</button>
+      <button data-tab="pareja">👩‍❤️‍👨 Pareja</button>
     </div>
     <div id="qc-tool-backup">
       <div class="qc-tool-section">
@@ -169,6 +170,32 @@ Error generating stack: `+u.message+`
         <div id="qc-import-dupes" style="display:none;margin-top:10px"></div>
       </div>
     </div>
+    <div id="qc-tool-pareja" style="display:none">
+      <div class="qc-tool-section">
+        <h4>👩‍❤️‍👨 Compartir con pareja (Fase 1)</h4>
+        <p style="font-size:11px;opacity:.7;margin:0 0 8px 0">Detecta recetas nuevas desde el último envío y las manda por WhatsApp. Sin servidor.</p>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input id="qc-pareja-nombre" placeholder="Nombre pareja (ej: María)" style="flex:1;padding:10px;border-radius:12px;border:1px solid #e7dcc9;font-size:12px;font-weight:700">
+          <button id="qc-pareja-save" style="padding:10px 14px;border-radius:12px;background:#fff;border:1px solid #e7dcc9;font-weight:800;font-size:12px">💾 Guardar</button>
+        </div>
+        <div id="qc-pareja-info" style="font-size:11px;margin:6px 0;opacity:.8"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <button id="qc-pareja-compartir" style="padding:10px 14px;border-radius:12px;background:#25D366;color:#fff;border:1px solid #25D366;font-weight:800;font-size:12px">📤 Compartir novedades por WhatsApp</button>
+          <button id="qc-pareja-copiar" style="padding:10px 14px;border-radius:12px;background:#111827;color:#fff;border:1px solid #111827;font-weight:800;font-size:12px">📋 Copiar JSON novedades</button>
+          <button id="qc-pareja-marcar" style="padding:10px 14px;border-radius:12px;background:#fff;border:1px solid #e7dcc9;font-weight:800;font-size:11px">✅ Marcar como compartido</button>
+        </div>
+        <div id="qc-pareja-status" style="font-size:11px;margin-top:8px;white-space:pre-wrap"></div>
+        <div id="qc-pareja-lista" style="margin-top:10px;max-height:160px;overflow:auto;font-size:11px"></div>
+        <hr style="margin:10px 0">
+        <p style="font-size:10px;opacity:.6">Al recibir tu pareja: que abra ⚙️ > Importar recetas y pegue el JSON. Si es menú semanal, se importa como menú actual.</p>
+      </div>
+      <div class="qc-tool-section">
+        <h4>📥 Recibir de pareja</h4>
+        <p style="font-size:11px;opacity:.7">Si te han pasado un JSON de novedades, impórtalo aquí (usa la pestaña Importar recetas).</p>
+        <button id="qc-pareja-ir-import" style="padding:8px 12px;border-radius:10px;background:#fff;border:1px solid #e7dcc9;font-weight:700;font-size:11px">Ir a Importar</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -192,6 +219,149 @@ const getCD=()=>{try{return JSON.parse(localStorage.getItem(KEY_CD)||'{}')}catch
 const setCD=o=>localStorage.setItem(KEY_CD, JSON.stringify(o));
 
 const getBase=()=>{try{return getStore()?.comensales||4}catch{return 4;}};
+
+function initPareja(){
+  const KEY_NOMBRE='qc-pareja-nombre';
+  const KEY_LAST='qc-pareja-last-share';
+  const nombreInput=document.getElementById('qc-pareja-nombre');
+  const saveBtn=document.getElementById('qc-pareja-save');
+  const info=document.getElementById('qc-pareja-info');
+  const status=document.getElementById('qc-pareja-status');
+  const lista=document.getElementById('qc-pareja-lista');
+  const btnCompartir=document.getElementById('qc-pareja-compartir');
+  const btnCopiar=document.getElementById('qc-pareja-copiar');
+  const btnMarcar=document.getElementById('qc-pareja-marcar');
+  const btnIrImport=document.getElementById('qc-pareja-ir-import');
+  if(!nombreInput) return false;
+  
+  const getNombre=()=>localStorage.getItem(KEY_NOMBRE)||'';
+  const getLast=()=>{try{return JSON.parse(localStorage.getItem(KEY_LAST)||'null')}catch{return null}};
+  const setLast=(obj)=>localStorage.setItem(KEY_LAST, JSON.stringify(obj));
+  
+  nombreInput.value=getNombre();
+  if(saveBtn && !saveBtn._fixed){
+    saveBtn._fixed=true;
+    saveBtn.onclick=()=>{
+      localStorage.setItem(KEY_NOMBRE, nombreInput.value.trim());
+      if(info) info.textContent='Guardado: '+(nombreInput.value.trim()||'pareja');
+      updateParejaInfo();
+    };
+  }
+  
+  function updateParejaInfo(){
+    const s=getStore();
+    if(!s){ if(info) info.textContent='Abre app una vez'; return; }
+    const last=getLast();
+    const total=(s.recetas||[]).length;
+    const lastAt=last?.at ? new Date(last.at).toLocaleString() : 'nunca';
+    const lastCount=last?.recetaIds?.length||0;
+    const currentIds=(s.recetas||[]).map(r=>r.id);
+    const newIds=currentIds.filter(id=> !(last?.recetaIds||[]).includes(id));
+    // Also detect by timestamp if id is Date.now based
+    const newRecetas=(s.recetas||[]).filter(r=> (last?.recetaIds||[]).indexOf(r.id)===-1);
+    
+    if(info){
+      const nombre=getNombre()||'tu pareja';
+      info.innerHTML=`Total recetas: <b>${total}</b> | Último envío: <b>${lastAt}</b> (${lastCount} recetas)<br>Novedades para <b>${nombre}</b>: <b>${newRecetas.length}</b> recetas`;
+    }
+    if(lista){
+      if(newRecetas.length){
+        lista.innerHTML=newRecetas.map(r=>`• ${r.emoji||'🍽️'} ${r.nombre} (${r.grupo||'otro'})`).join('<br>');
+      }else{
+        lista.innerHTML='<span style="opacity:.6">No hay recetas nuevas desde último envío. Si tu mujer añade, aquí saldrán.</span>';
+      }
+    }
+    // Toast si hay novedades y han pasado >1 día
+    try{
+      const lastAtMs=last?.at||0;
+      const diffH=(Date.now()-lastAtMs)/(1000*60*60);
+      if(newRecetas.length>0 && diffH>24){
+        // No spam: solo si no se ha mostrado hoy
+        const lastToast=+(localStorage.getItem('qc-pareja-toast')||0);
+        if(Date.now()-lastToast > 12*60*60*1000){
+          // Mostrar toast pequeño arriba si existe función
+          const toast=document.createElement('div');
+          toast.style.cssText='position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:10002;background:#111827;color:#fff;padding:10px 14px;border-radius:999px;font-size:12px;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.3)';
+          const nombre=getNombre()||'tu pareja';
+          toast.textContent=`📤 Tienes ${newRecetas.length} recetas nuevas sin compartir con ${nombre}`;
+          document.body.appendChild(toast);
+          setTimeout(()=>toast.remove(),6000);
+          localStorage.setItem('qc-pareja-toast', Date.now());
+        }
+      }
+    }catch(e){}
+    return {newRecetas, last};
+  }
+  
+  if(btnIrImport && !btnIrImport._fixed){
+    btnIrImport._fixed=true;
+    btnIrImport.onclick=()=>{
+      document.querySelectorAll('#qc-tools-tabs button').forEach(b=>b.classList.remove('active'));
+      document.querySelector('#qc-tools-tabs button[data-tab="import"]')?.classList.add('active');
+      document.getElementById('qc-tool-backup').style.display='none';
+      document.getElementById('qc-tool-import').style.display='block';
+      document.getElementById('qc-tool-pareja').style.display='none';
+    };
+  }
+  
+  function buildPayload(){
+    const s=getStore();
+    if(!s) return null;
+    const {newRecetas}=updateParejaInfo();
+    if(!newRecetas.length) return {recetas:[], menu:s.menu||[], vacio:true};
+    return {recetas:newRecetas, menu:s.menu||[], fecha:new Date().toISOString(), de:'QUE COMEMOS', para:getNombre()||'pareja'};
+  }
+  
+  if(btnCompartir && !btnCompartir._fixed){
+    btnCompartir._fixed=true;
+    btnCompartir.onclick=()=>{
+      const payload=buildPayload();
+      if(!payload){ status.textContent='No hay datos'; return; }
+      if(payload.vacio){ status.textContent='No hay novedades para compartir. Añade una receta primero.'; return; }
+      const nombre=getNombre()||'tu pareja';
+      const jsonStr=JSON.stringify(payload.recetas, null, 2);
+      const resumen=payload.recetas.map(r=>`• ${r.nombre}`).join('\n');
+      const texto=`Hola ${nombre}! Te paso ${payload.recetas.length} recetas nuevas de QUE COMEMOS:\n${resumen}\n\nPega este JSON en ⚙️ > Importar recetas:\n\n${jsonStr.substring(0,3000)}${jsonStr.length>3000?'... (JSON largo, usa Copiar JSON)':''}`;
+      // WhatsApp share
+      const waUrl='https://wa.me/?text='+encodeURIComponent(texto);
+      status.textContent='Abriendo WhatsApp con '+payload.recetas.length+' recetas...';
+      window.open(waUrl, '_blank');
+    };
+  }
+  
+  if(btnCopiar && !btnCopiar._fixed){
+    btnCopiar._fixed=true;
+    btnCopiar.onclick=()=>{
+      const payload=buildPayload();
+      if(!payload || payload.vacio){ status.textContent='No hay novedades'; return; }
+      const jsonStr=JSON.stringify(payload.recetas, null, 2);
+      navigator.clipboard.writeText(jsonStr).then(()=>{
+        status.textContent='✅ JSON de '+payload.recetas.length+' recetas copiado al portapapeles. Pásalo por WhatsApp a tu pareja y que lo importe.';
+      }).catch(()=>{
+        // Fallback
+        const ta=document.getElementById('qc-import-text');
+        if(ta){ ta.value=jsonStr; status.textContent='JSON puesto en Importar. Copia manual.'; }
+      });
+    };
+  }
+  
+  if(btnMarcar && !btnMarcar._fixed){
+    btnMarcar._fixed=true;
+    btnMarcar.onclick=()=>{
+      const s=getStore();
+      if(!s){ status.textContent='No hay datos'; return; }
+      const ids=(s.recetas||[]).map(r=>r.id);
+      setLast({at:Date.now(), recetaIds:ids});
+      status.textContent='✅ Marcado como compartido hasta ahora ('+ids.length+' recetas). La próxima vez solo se detectarán las nuevas.';
+      updateParejaInfo();
+    };
+  }
+  
+  // Actualizar info cada vez que se abre pareja tab
+  updateParejaInfo();
+  return true;
+}
+
 function initTools(){
   const btn=document.getElementById('qc-tools-btn');
   const modal=document.getElementById('qc-tools-modal');
@@ -207,10 +377,13 @@ function initTools(){
       b.classList.add('active');
       document.getElementById('qc-tool-backup').style.display = b.dataset.tab==='backup' ? 'block' : 'none';
       document.getElementById('qc-tool-import').style.display = b.dataset.tab==='import' ? 'block' : 'none';
+      const parejaEl=document.getElementById('qc-tool-pareja'); if(parejaEl) parejaEl.style.display = b.dataset.tab==='pareja' ? 'block' : 'none';
+      if(b.dataset.tab==='pareja'){ try{ initPareja(); }catch(e){} }
     };
   });
   document.getElementById('qc-restore-file') && (document.getElementById('qc-restore-btn').onclick=()=>document.getElementById('qc-restore-file').click());
   initImporter();
+  initPareja();
   updateInfo(); updateInfoVariabilidad();
   return true;
 }
