@@ -157,6 +157,61 @@ Error generating stack: `+u.message+`
       </div>
     </div>
     <div id="qc-tool-import" style="display:none">
+      <div class="qc-tool-section" style="border:1px dashed #d6cbb6;background:#fffaf0">
+        <h4>📹 Importar desde vídeo (vía IA externa)</h4>
+        <p style="font-size:11px;opacity:.8;margin:0 0 8px 0">Para vídeos de Instagram/TikTok. Sube el vídeo a la IA que uséis (tú Meta AI, Alicia ChatGPT, o Gemini) y te genera el JSON.</p>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+          <button id="qc-open-meta" style="padding:8px 12px;border-radius:999px;background:#0064e0;color:#fff;border:1px solid #0064e0;font-weight:800;font-size:11px">💙 Meta AI</button>
+          <button id="qc-open-chatgpt" style="padding:8px 12px;border-radius:999px;background:#111827;color:#fff;border:1px solid #111827;font-weight:800;font-size:11px">🖤 ChatGPT</button>
+          <button id="qc-open-gemini" style="padding:8px 12px;border-radius:999px;background:#fff;border:1px solid #e7dcc9;font-weight:800;font-size:11px">💜 Gemini</button>
+          <button id="qc-copy-prompt-ia" style="padding:8px 12px;border-radius:999px;background:#f59e0b;color:#fff;border:1px solid #f59e0b;font-weight:800;font-size:11px">📋 Copiar prompt</button>
+        </div>
+        <details style="font-size:11px;margin-bottom:8px">
+          <summary style="cursor:pointer;font-weight:800">Ver prompt que se copia</summary>
+          <pre id="qc-prompt-ia-text" style="white-space:pre-wrap;background:#fff;border:1px solid #e7dcc9;border-radius:8px;padding:8px;font-size:10px;margin-top:6px">Sube el vídeo de receta y hazme un JSON en formato QUE COMEMOS para importar.
+
+Formato obligatorio (array con 1 receta):
+[
+  {
+    "nombre": "Nombre corto de receta",
+    "emoji": "🍗",
+    "tipo": "principal",
+    "grupo": "carne",
+    "temporada": "todo_año",
+    "momento": "ambas",
+    "necesitaAcomp": false,
+    "kcal": 350,
+    "prot": 25,
+    "grasa": 15,
+    "hc": 10,
+    "aptaExpert": false,
+    "tiempoClasico": "30min",
+    "tiempoExpert": "20min",
+    "ing": [
+      {"n": "ingrediente", "c": 1, "u": "ud", "grupo": "Carnicería"}
+    ],
+    "pasosClasico": ["Paso 1 detallado", "Paso 2..."],
+    "pasosExpert": ["Paso corto 1", "Paso corto 2"]
+  }
+]
+
+Reglas:
+- tipo: principal, acompañamiento o completo
+- grupo: pescado, carne, legumbre, verdura, huevo, pastaArroz, otro, guia
+- u: g, ml, ud, cdita, cda, vaso, pizca
+- grupo compra: Carnicería, Pescadería, Frutería, Despensa, Panadería, Lácteos
+- Transcribe audio y texto en pantalla para ingredientes y pasos. No inventes cantidades si dice "un chorreón", pon 20ml y marca como aproximado.
+- Devuelve SOLO JSON válido, sin texto extra.
+</pre>
+        </details>
+        <ol style="font-size:11px;margin:0 0 0 16px;opacity:.8">
+          <li>Pulsa Meta / ChatGPT / Gemini para abrir la IA</li>
+          <li>Sube el vídeo, pega el prompt (botón Copiar prompt)</li>
+          <li>Copia el JSON que te devuelve</li>
+          <li>Pégalo abajo en el cuadro y dale a Importar</li>
+        </ol>
+        <div id="qc-ia-status" style="font-size:11px;margin-top:6px;color:#065f46;font-weight:700"></div>
+      </div>
       <div class="qc-tool-section">
         <h4>Importar recetas (JSON)</h4>
         <p style="font-size:11px;opacity:.7;margin:0 0 8px 0">Si la receta ya existe por nombre, podrás elegir modificar o añadir como nueva.</p>
@@ -279,6 +334,23 @@ function initPareja(){
 }
 
 
+
+function initIAImport(){
+  const btnMeta=document.getElementById('qc-open-meta');
+  const btnGpt=document.getElementById('qc-open-chatgpt');
+  const btnGem=document.getElementById('qc-open-gemini');
+  const btnCopy=document.getElementById('qc-copy-prompt-ia');
+  const pre=document.getElementById('qc-prompt-ia-text');
+  const status=document.getElementById('qc-ia-status');
+  if(!btnMeta) return false;
+  const promptText=pre? pre.textContent : '';
+  if(btnMeta && !btnMeta._qc){ btnMeta._qc=true; btnMeta.onclick=()=>{ window.open('https://www.meta.ai/', '_blank'); if(status) status.textContent='Meta AI abierto. Sube vídeo + pega prompt.'; } }
+  if(btnGpt && !btnGpt._qc){ btnGpt._qc=true; btnGpt.onclick=()=>{ window.open('https://chatgpt.com/', '_blank'); if(status) status.textContent='ChatGPT abierto. Sube vídeo + pega prompt.'; } }
+  if(btnGem && !btnGem._qc){ btnGem._qc=true; btnGem.onclick=()=>{ window.open('https://gemini.google.com/', '_blank'); if(status) status.textContent='Gemini abierto. Sube vídeo + pega prompt.'; } }
+  if(btnCopy && !btnCopy._qc){ btnCopy._qc=true; btnCopy.onclick=()=>{ navigator.clipboard.writeText(promptText).then(()=>{ if(status) status.textContent='✅ Prompt copiado. Ve a Meta/ChatGPT/Gemini y pégalo con el vídeo.'; }).catch(()=>{ if(status) status.textContent='Copia manual del recuadro.'; }); } }
+  return true;
+}
+
 function initTools(){
   const btn=document.getElementById('qc-tools-btn');
   const modal=document.getElementById('qc-tools-modal');
@@ -299,7 +371,7 @@ function initTools(){
     };
   });
   document.getElementById('qc-restore-file') && (document.getElementById('qc-restore-btn').onclick=()=>document.getElementById('qc-restore-file').click());
-  initImporter();
+  initImporter(); initIAImport();
   initPareja();
   updateInfo(); updateInfoVariabilidad();
   return true;
