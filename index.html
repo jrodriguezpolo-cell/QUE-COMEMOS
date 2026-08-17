@@ -3290,198 +3290,180 @@ setInterval(()=>{ renderBanners(); },1000);
 })();
 </script>
 
+
 <script id="qc-dictado-costecero">
 (function(){
   let recognition = null;
   let isRecording = false;
   let finalTranscript = "";
+  let guiadoMode = false;
+  let guiadoStage = 0;
+  let guiadoData = {};
   
+  const stages = [
+    {key:'momento', prompt:'1/5 MOMENTO: di cena, comida, ambas, desayuno o postre', parse:(t)=>{ const tt=t.toLowerCase(); let o={}; if(/desayuno/.test(tt)) o.momento='desayuno'; else if(/postre/.test(tt)) o.momento='postre'; else if(/cena/.test(tt) && !/comida/.test(tt)) o.momento='cena'; else if(/comida/.test(tt) && !/cena/.test(tt)) o.momento='comida'; else if(/ambas/.test(tt)) o.momento='ambas'; else o.momento='cena'; return o; }},
+    {key:'nombre', prompt:'2/5 NOMBRE: di el nombre, ej: Perrito caliente', parse:(t)=>{ let n=t.trim().split(/[.,\n]/)[0].trim(); n=n.replace(/\b(cena|comida|desayuno|postre|ambas)\b/gi,'').trim(); n=n.replace(/\s+/g,' ').trim(); if(n.length>2){ return {nombre: n.charAt(0).toUpperCase()+n.slice(1).toLowerCase()}; } return {}; }},
+    {key:'clasif', prompt:'3/5 CLASIFICACIÓN: di tipo y grupo, ej: principal carne todo el año guardia estrella', parse:(t)=>{ const tt=t.toLowerCase(); let o={}; if(/principal/.test(tt)) o.tipo='principal'; else if(/acompa/.test(tt)) o.tipo='acompañamiento'; else o.tipo='completo'; const grupos={carne:["carne","pollo","ternera","cerdo","cordero","salchicha","perrito"], pescado:["pescado","merluza","salm"], legumbre:["lenteja","garbanzo","alubia"], verdura:["verdura","calabac"], huevo:["huevo"], pasta:["pasta"], arroz:["arroz"]}; for(let [g,kws] of Object.entries(grupos)){ if(kws.some(k=>tt.includes(k))){ o.grupo=g; break; } } if(/perrito/.test(tt)) o.grupo='carne'; if(/verano/.test(tt)) o.temporada='verano'; else if(/invierno/.test(tt)) o.temporada='invierno'; else o.temporada='todo_año'; if(/guardia/.test(tt)) o.soloGuardia=true; if(/comod/.test(tt)) o.comodin=true; if(/estrella/.test(tt)) o.estrella=true; return o; }},
+    {key:'ingredientes', prompt:'4/5 INGREDIENTES POR PERSONA: di un pan de perrito, una salchicha gorda, una bolsita de mostaza... di SIGUIENTE cuando acabes', parse:(t)=>{ return {ingRaw: t}; }},
+    {key:'pasos', prompt:'5/5 PASOS: di paso uno calentar el pan, paso dos freír la salchicha, paso tres montar... di FIN al acabar', parse:(t)=>{ return {pasosRaw: t}; }}
+  ];
   
+  function parseIngredientesBloque(text){
+    const original = text;
+    const t = original.toLowerCase();
+    let ing = [];
+    let seen = new Set();
+    
+    // Limpiar muletillas
+    let bloque = original.replace(/ingredientes por persona:?/gi,'').trim();
+    // Separar por comas y por " y "
+    let partes = bloque.split(/,|\s+y\s+|\n/).map(p=>p.trim()).filter(p=>p.length>2);
+    
+    for(let part of partes){
+      let lower = part.toLowerCase();
+      if(/siguiente|paso|fin/.test(lower)) continue;
+      if(lower.length<3) continue;
+      
+      // Extraer cantidad: un, una, dos, tres, número
+      let cant = 1;
+      let nombre = part;
+      
+      let mCant = lower.match(/^(un|una|dos|tres|cuatro|\d+(?:[.,]\d+)?)\s*(.*)/);
+      if(mCant){
+        let cRaw = mCant[1];
+        if(cRaw==='un' || cRaw==='una') cant=1;
+        else if(cRaw==='dos') cant=2;
+        else if(cRaw==='tres') cant=3;
+        else if(cRaw==='cuatro') cant=4;
+        else cant = parseFloat(cRaw.replace(',','.'))||1;
+        nombre = mCant[2].trim();
+      }
+      
+      // Limpiar "de" inicial y "por persona"
+      nombre = nombre.replace(/^(de\s+)/i,'').replace(/\s+por persona.*$/i,'').trim();
+      nombre = nombre.replace(/\s+/g,' ').trim();
+      
+      // Quitar palabras vacías muy genéricas
+      if(nombre.length<3 || nombre.length>50) continue;
+      if(/^(el|la|los|las)$/.test(nombre)) continue;
+      
+      // Normalizar unidad
+      let u = 'ud';
+      if(/bolsita|bolsa|sobre/.test(lower)){
+        if(/ketchup|mostaza/.test(lower)) { u='g'; if(cant===1) cant=15; }
+        else u='ud';
+      }else if(/pan|salchicha|perrito/.test(lower)){
+        u='ud';
+      }else if(/g|gramo/.test(lower) && /\d/.test(lower)){
+        // si dice gramos explícito, intentar extraer
+        let mG = lower.match(/(\d+)\s*g/);
+        if(mG){ cant=parseFloat(mG[1]); u='g'; nombre = nombre.replace(/\d+\s*g\s*de?\s*/,'').trim(); }
+      }
+      
+      // Evitar duplicados exactos
+      let key = nombre.toLowerCase();
+      if(seen.has(key)) continue;
+      seen.add(key);
+      
+      // Capitalizar nombre para mostrar
+      let nombreCap = nombre.charAt(0).toUpperCase()+nombre.slice(1).toLowerCase();
+      // Correcciones específicas
+      if(/pan.*perrito/.test(lower)) nombreCap = 'Pan de perrito caliente';
+      else if(/salchicha.*gorda|salchicha.*perrito/.test(lower)) nombreCap = 'Salchicha gorda para perrito';
+      else if(/salchicha/.test(lower) && !/gorda/.test(lower)) nombreCap = 'Salchicha';
+      else if(/ketchup/.test(lower) || /ketchup/.test(lower)) nombreCap = 'Ketchup';
+      else if(/mostaza/.test(lower)) nombreCap = 'Mostaza';
+      
+      ing.push({n:nombreCap, c:cant, u:u});
+    }
+    
+    // Si no detectó nada y menciona perrito, fallback
+    if(ing.length===0 && /perrito/.test(t)){
+      if(t.includes('pan')) ing.push({n:'Pan de perrito caliente', c:1, u:'ud'});
+      if(t.includes('salchicha')) ing.push({n:'Salchicha gorda para perrito', c:1, u:'ud'});
+    }
+    if(t.includes('ketchup') && !Array.from(seen).some(s=>s.includes('ketchup'))) ing.push({n:'Ketchup', c:15, u:'g'});
+    if(t.includes('mostaza') && !Array.from(seen).some(s=>s.includes('mostaza'))) ing.push({n:'Mostaza', c:15, u:'g'});
+    
+    return ing;
+  }
   
-  function parseDictado(text){
+  function parsePasosBloque(text){
+    let raw = text.trim();
+    // Quitar prefijo pasos:
+    raw = raw.replace(/pasos?:?/gi,' ').trim();
+    
+    // Reemplazar marcadores de paso por separador
+    let norm = raw
+      .replace(/primer paso|paso\s+uno/gi, ' |PASO| ')
+      .replace(/segundo paso|paso\s+dos/gi, ' |PASO| ')
+      .replace(/tercer paso|paso\s+tres/gi, ' |PASO| ')
+      .replace(/cuarto paso|paso\s+cuatro/gi, ' |PASO| ')
+      .replace(/quinto paso|paso\s+cinco/gi, ' |PASO| ')
+      .replace(/paso\s+\d+/gi, ' |PASO| ')
+      .replace(/\s+luego\s+|\s+despu[eé]s\s+|\s+a continuaci[oó]n\s+/gi, ' |PASO| ');
+    
+    let pasos = norm.split(/\|PASO\|/).map(s=>s.trim()).filter(s=>s.length>10).map(s=>{
+      s = s.replace(/^[,\s]+/, '').trim();
+      s = s.replace(/^(uno|dos|tres|cuatro)\s+/i,'').trim();
+      return s.charAt(0).toUpperCase()+s.slice(1);
+    }).filter(s=>s.length>8 && !/siguiente|fin/.test(s.toLowerCase()));
+    
+    // Si no separó, intentar por puntos
+    if(pasos.length<=1){
+      let porPuntos = raw.split(/\.|\n/).map(s=>s.trim()).filter(s=>s.length>15 && !/ingrediente/.test(s.toLowerCase()));
+      if(porPuntos.length>1) pasos = porPuntos;
+    }
+    
+    return pasos.slice(0,10);
+  }
+  
+  function parseDictadoLibre(text){
     const original = text.trim();
     const t = original.toLowerCase();
     let out = {};
     
-    // --- NOMBRE MEJORADO ---
-    let nombreRaw = original.split(/ingredientes(?: por persona)?|pasos?|elaboraci[oó]n|preparaci[oó]n/i)[0].trim();
-    // Eliminar metadatos que el usuario pueda haber dictado
-    nombreRaw = nombreRaw.replace(/\b(cena|comida|desayuno|postre|ambas|emoji de [a-z\s]+|principal|acompa[ñn]amiento|completo|carne|pescado|legumbre|verdura|huevo|pasta|arroz|todo el a[ñn]o|verano|invierno|solo guardia|comod[ií]n|estrella|kcal|prote[ií]nas?|grasa|hidratos)\b/gi, ' ').trim();
-    nombreRaw = nombreRaw.replace(/\s+/g,' ').trim();
-    // Si sigue vacío, usar primeras 4 palabras del original sin metadatos
-    if(nombreRaw.length<3){
-      nombreRaw = original.split(/[.,\n]/)[0].replace(/\b(cena|comida|emoji.*?)\b/gi,'').trim();
-    }
-    let primeraFrase = nombreRaw.split(/[.,\n]/)[0].trim();
-    // Limitar a 4-5 palabras máximo para nombre
-    let palabras = primeraFrase.split(/\s+/).filter(w=>w.length>1);
-    if(palabras.length>5) palabras = palabras.slice(0,5);
-    if(palabras.length>=1){
-      let nombre = palabras.join(' ');
-      out.nombre = nombre.charAt(0).toUpperCase()+nombre.slice(1).toLowerCase();
+    // Nombre - primera frase limpia
+    let nombreRaw = original.split(/ingredientes(?: por persona)?|pasos?|elaboraci[oó]n/i)[0].trim();
+    nombreRaw = nombreRaw.replace(/\b(cena|comida|desayuno|postre|ambas|emoji de [a-z\s]+|principal|acompa[ñn]amiento|completo|carne|pescado|legumbre|verdura|todo el a[ñn]o|verano|invierno|solo guardia|comod[ií]n|estrella)\b/gi, ' ').replace(/\s+/g,' ').trim();
+    if(nombreRaw.length>2){
+      let palabras = nombreRaw.split(/\s+/).slice(0,5).join(' ');
+      out.nombre = palabras.charAt(0).toUpperCase()+palabras.slice(1).toLowerCase();
     }
     
-    // --- GRUPO ---
-    const grupos = {
-      carne: ["pollo","ternera","cerdo","cordero","chuletilla","chuleta","lomo","carne","alb[óo]ndiga","hamburguesa","salchicha","perrito"],
-      pescado: ["pescado","merluza","salm[oó]n","at[úu]n","bacalao","gamba","mejill[oó]n"],
-      legumbre: ["lenteja","garbanzo","alubia","legumbre","jud[íi]a"],
-      verdura: ["verdura","calabac[ií]n","br[oó]coli","espinaca","ensalada","pimiento","cebolla","zanahoria"],
-      huevo: ["huevo","tortilla"],
-      pasta: ["pasta","macarr[oó]n","espagueti","fideo"],
-      arroz: ["arroz"],
-      crema: ["crema","sopa","pur[ée]"]
-    };
-    for(let [g, kws] of Object.entries(grupos)){
-      if(kws.some(k=> new RegExp(k).test(t))){ out.grupo = g; break; }
-    }
-    if(/perrito|pan de perrito|hot dog/.test(t)) out.grupo = "carne";
+    if(/desayuno/.test(t)) out.momento='desayuno';
+    else if(/postre/.test(t)) out.momento='postre';
+    else if(/cena/.test(t) && !/comida/.test(t)) out.momento='cena';
+    else if(/comida/.test(t) && !/cena/.test(t)) out.momento='comida';
+    else out.momento='ambas';
     
-    if(/desayuno/.test(t)) out.momento = "desayuno";
-    else if(/postre/.test(t)) out.momento = "postre";
-    else if(/cena/.test(t) && !/comida/.test(t)) out.momento = "cena";
-    else if(/comida/.test(t) && !/cena/.test(t)) out.momento = "comida";
-    else out.momento = "ambas";
+    if(/principal/.test(t)) out.tipo='principal'; else if(/acompa/.test(t)) out.tipo='acompañamiento'; else out.tipo='completo';
+    if(/perrito/.test(t)) out.grupo='carne';
+    if(/guardia/.test(t)) out.soloGuardia=true;
+    if(/comod/.test(t)) out.comodin=true;
+    if(/estrella/.test(t)) out.estrella=true;
+    out.temporada='todo_año';
     
-    if(/acompa[ñn]amiento/.test(t)) out.tipo = "acompañamiento";
-    else if(/principal/.test(t)) out.tipo = "principal";
-    else out.tipo = "completo";
-    
-    if(/estrella/.test(t)) out.estrella = true;
-    if(/comod[ií]n/.test(t)) out.comodin = true;
-    if(/guardia/.test(t)) out.soloGuardia = true;
-    if(/verano/.test(t)) out.temporada = "verano";
-    else if(/invierno/.test(t)) out.temporada = "invierno";
-    else out.temporada = "todo_año";
-    
-    // --- INGREDIENTES ---
-    let ing = [];
-    let seen = new Set();
-    let bloqueIng = "";
-    let matchIng = t.match(/ingredientes(?: por persona)?[:\s]+([\s\S]*?)(?:pasos?|elaboraci[oó]n|preparaci[oó]n|paso\s+uno|primer paso|$)/i);
-    if(matchIng){
-      bloqueIng = matchIng[1];
-    }else{
-      let partes = original.split(/paso\s+uno|primer paso/i);
-      bloqueIng = partes[0].split(/ingredientes(?: por persona)?/i)[1] || "";
-      if(!bloqueIng) bloqueIng = original;
-    }
-    bloqueIng = bloqueIng.replace(/\s+y\s+/g, ', ').replace(/\s+con\s+/g, ', ');
-    
-    function normUnidad(raw){
-      raw = (raw||'').toLowerCase();
-      if(/kg|kilo/.test(raw)) return {u:'g', mult:1000};
-      if(/cucharada/.test(raw)) return {u:'cda', mult:1};
-      if(/cucharadita/.test(raw)) return {u:'cdta', mult:1};
-      if(/ml|mililitro/.test(raw)) return {u:'ml', mult:1};
-      if(/l|litro/.test(raw)) return {u:'ml', mult:1000};
-      if(/ud|unidad/.test(raw)) return {u:'ud', mult:1};
-      if(/sobre/.test(raw)) return {u:'sobre', mult:1};
-      if(/pan|perrito|salchicha/.test(raw)) return {u:'ud', mult:1};
-      if(/pizca/.test(raw)) return {u:'pizca', mult:1};
-      if(/diente/.test(raw)) return {u:'diente', mult:1};
-      return {u:'ud', mult:1};
+    let mIng = t.match(/ingredientes(?: por persona)?[:\s]+([\s\S]*?)(?:pasos?|elaboraci[oó]n|paso\s+uno|primer paso|$)/i);
+    if(mIng){
+      out.ing = parseIngredientesBloque(mIng[1]);
     }
     
-    const ingRegexConCant = /(\d+(?:[.,]\d+)?|un|una|dos|tres|cuatro)\s*(g|gramos?|kg|kilos?|ml|mililitros?|l|litros?|cucharadas?|cucharaditas?|ud|unidades?|sobres?|pan(?:es)?|salchichas?|pizca|dientes?)?\s*(?:de\s*)?([a-záéíóúñü\s]+?)(?=,|\.|\s+y\s+|\s+con\s+|\s+luego|\s+despu[eé]s|\s+paso|$)/gi;
-    let mm;
-    while((mm = ingRegexConCant.exec(bloqueIng)) !== null){
-      let cantRaw = mm[1].toLowerCase();
-      let cant = 1;
-      if(cantRaw==='un' || cantRaw==='una') cant = 1;
-      else if(cantRaw==='dos') cant = 2;
-      else if(cantRaw==='tres') cant = 3;
-      else if(cantRaw==='cuatro') cant = 4;
-      else cant = parseFloat(cantRaw.replace(',','.'));
-      if(isNaN(cant)) cant = 1;
-      let unidadRaw = mm[2]||'';
-      let nombreIng = mm[3].trim().replace(/^(de\s+|un\s+|una\s+)/,'').replace(/\s+por\s+persona.*$/,'').trim();
-      nombreIng = nombreIng.replace(/\s+/g,' ').trim();
-      if(nombreIng.length<2 || nombreIng.length>40) continue;
-      if(/paso|calentar|fre[ií]r|juntar|poner|ingrediente/.test(nombreIng)) continue;
-      if(seen.has(nombreIng)) continue;
-      seen.add(nombreIng);
-      let {u, mult} = normUnidad(unidadRaw);
-      if(/pan|salchicha|perrito/.test(nombreIng)) u='ud';
-      if(/ketchup|mostaza/.test(nombreIng)) { u='g'; if(cant===1) cant=15; }
-      ing.push({n:nombreIng, c:cant*mult, u:u});
+    let mPasosIdx = t.search(/paso\s+uno|primer paso|pasos?\s*:/i);
+    if(mPasosIdx>=0){
+      let pasosRaw = original.substring(mPasosIdx);
+      out.pasosClasico = parsePasosBloque(pasosRaw);
     }
     
-    if(ing.length===0){
-      bloqueIng.split(/,|\n/).forEach(part=>{
-        part = part.trim().toLowerCase().replace(/^(un\s+|una\s+)/,'').trim();
-        if(part.length>2 && part.length<35){
-          if(!/paso|calentar|fre[ií]r|juntar|ingrediente/.test(part) && !seen.has(part)){
-            ing.push({n:part, c:1, u:'ud'});
-            seen.add(part);
-          }
-        }
-      });
-    }
-    if(/perrito/.test(t) && ing.length===0){
-      if(t.includes('pan')) ing.push({n:'pan de perrito caliente', c:1, u:'ud'});
-      if(t.includes('salchicha')) ing.push({n:'salchicha', c:1, u:'ud'});
-      if(t.includes('ketchup') || t.includes('ketchup')) ing.push({n:'ketchup', c:15, u:'g'});
-      if(t.includes('mostaza')) ing.push({n:'mostaza', c:15, u:'g'});
-    }else{
-      if(t.includes('ketchup') && !seen.has('ketchup')) ing.push({n:'ketchup', c:15, u:'g'});
-      if(t.includes('mostaza') && !seen.has('mostaza')) ing.push({n:'mostaza', c:15, u:'g'});
-    }
-    if(ing.length>0) out.ing = ing;
-    
-    // --- PASOS MEJORADO ---
-    // Buscar desde primer "paso uno" o "pasos"
-    let pasosStartIdx = -1;
-    let mPaso = t.search(/paso\s+uno|primer paso|pasos?\s*:/i);
-    let pasosTextRaw = "";
-    if(mPaso>=0){
-      pasosTextRaw = original.substring(mPaso);
-    }else{
-      // Si no hay marca, buscar después de ingredientes
-      let mIngEnd = t.search(/ingredientes(?: por persona)?/i);
-      if(mIngEnd>=0){
-        let afterIng = original.substring(mIngEnd);
-        // Quitar bloque ingredientes, quedarse con resto
-        let mPasosKeyword = afterIng.search(/pasos?|elaboraci[oó]n|preparaci[oó]n/i);
-        if(mPasosKeyword>=0) pasosTextRaw = afterIng.substring(mPasosKeyword);
-        else pasosTextRaw = "";
-      }
-    }
-    
-    if(pasosTextRaw){
-      let pasosNorm = pasosTextRaw
-        .replace(/pasos?\s*:?/gi, ' ')
-        .replace(/paso\s+uno|primer paso/gi, ' |PASO| ')
-        .replace(/paso\s+dos|segundo paso/gi, ' |PASO| ')
-        .replace(/paso\s+tres|tercer paso/gi, ' |PASO| ')
-        .replace(/paso\s+cuatro|cuarto paso/gi, ' |PASO| ')
-        .replace(/paso\s+\d+/gi, ' |PASO| ')
-        .replace(/\s+luego\s+|\s+despu[eé]s\s+|\s+a continuaci[oó]n\s+/gi, ' |PASO| ');
-      
-      let pasos = pasosNorm.split(/\|PASO\|/).map(s=>s.trim()).filter(s=>{
-        return s.length>8 && s.length<300 && !/ingredientes por persona|emoji de|cena principal|todo el a[ñn]o|solo guardia/i.test(s);
-      }).map(s=>{
-        s = s.replace(/^,\s*/, '').replace(/^(uno|dos|tres)\s+/i,'').trim();
-        return s.charAt(0).toUpperCase()+s.slice(1);
-      });
-      
-      if(pasos.length>0) out.pasosClasico = pasos.slice(0,10);
-    }
-    
-    let tiempoMatch = t.match(/(\d+)\s*min/);
-    if(tiempoMatch) out.tiempoClasico = tiempoMatch[1]+"min";
-    else if(/perrito/.test(t)) out.tiempoClasico = "10min";
-    
-    if(/perrito/.test(t)) { out.kcal=350; out.prot=15; out.grasa=20; out.hc=25; }
+    if(/perrito/.test(t)){ out.kcal=350; out.prot=15; out.grasa=20; out.hc=25; out.tiempoClasico='10min'; }
     
     return out;
   }
-
-
   
-  window.qcStartDictado = function(v, C){
+  window.qcStartDictado = function(v, C, modo){
     const btn = document.getElementById('qc-dictate-btn');
     const status = document.getElementById('qc-dictado-status');
+    const overlay = document.getElementById('qc-guiado-overlay');
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if(!SR){
       alert('Tu navegador no soporta dictado. Usa Safari en iPhone/Mac o Chrome.');
@@ -3491,15 +3473,24 @@ setInterval(()=>{ renderBanners(); },1000);
       recognition.stop();
       return;
     }
+    
+    // Modo guiado por defecto
+    guiadoMode = true;
+    guiadoStage = 0;
+    guiadoData = {...v};
+    finalTranscript = "";
+    
+    if(overlay){
+      overlay.style.display='flex';
+      updateGuiadoUI();
+    }
+    
     recognition = new SR();
     recognition.lang = 'es-ES';
     recognition.continuous = true;
     recognition.interimResults = true;
-    finalTranscript = "";
     isRecording = true;
-    btn.textContent = '⏹️ Parar dictado';
-    btn.classList.add('bg-[#111827]','text-white');
-    status.textContent = 'Escuchando... di nombre, ingredientes con cantidades y pasos';
+    if(btn){ btn.textContent = '⏹️ Parar / Siguiente'; btn.classList.add('bg-[#111827]','text-white'); }
     
     recognition.onresult = function(e){
       let interim = "";
@@ -3508,39 +3499,158 @@ setInterval(()=>{ renderBanners(); },1000);
         if(e.results[i].isFinal) finalTranscript += transcript + ' ';
         else interim += transcript;
       }
-      status.textContent = (finalTranscript + interim).slice(0,120) + '...';
-    };
-    recognition.onerror = function(e){
-      console.error(e);
-      status.textContent = 'Error: '+e.error;
-      isRecording = false;
-      btn.textContent = '🎙️ Dictar receta';
-      btn.classList.remove('bg-[#111827]','text-white');
-    };
-    recognition.onend = function(){
-      isRecording = false;
-      btn.textContent = '🎙️ Dictar receta';
-      btn.classList.remove('bg-[#111827]','text-white');
-      if(finalTranscript.trim().length>10){
-        status.textContent = 'Procesando...';
-        try{
-          const parsed = parseDictado(finalTranscript);
-          console.log('Dictado parseado', parsed);
-          // Rellenar
-          C({...v, ...parsed, id:v.id||Date.now()});
-          status.textContent = '✓ Rellenado: '+(parsed.nombre||'')+' '+(parsed.ing?parsed.ing.length+' ing.':'');
-          // Feedback visual
-          setTimeout(()=>{ status.textContent=''; }, 4000);
-        }catch(err){
-          console.error(err);
-          status.textContent = 'No pude parsear, revisa texto: '+finalTranscript.slice(0,80);
+      let display = (finalTranscript + interim).slice(-120);
+      if(status) status.textContent = display + '...';
+      let guiadoText = document.getElementById('qc-guiado-transcript');
+      if(guiadoText) guiadoText.textContent = finalTranscript + interim;
+      
+      // Detectar palabras clave para avanzar automáticamente en modo guiado
+      const lower = (finalTranscript + interim).toLowerCase();
+      if(guiadoMode){
+        if(lower.includes('siguiente') && guiadoStage<stages.length-1){
+          // Avanzar
+          procesarStageActual();
         }
-      }else{
-        status.textContent = 'Dictado muy corto';
+        if(lower.includes(' fin') && guiadoStage===stages.length-1){
+          procesarStageActual(true);
+        }
       }
     };
+    
+    function procesarStageActual(isFin){
+      if(!finalTranscript.trim()) return;
+      let stage = stages[guiadoStage];
+      let parsed = stage.parse(finalTranscript);
+      console.log('Stage', guiadoStage, stage.key, 'parsed', parsed, 'raw', finalTranscript);
+      
+      if(stage.key==='ingredientes'){
+        let ings = parseIngredientesBloque(finalTranscript);
+        if(ings.length>0){
+          guiadoData.ing = (guiadoData.ing||[]).concat(ings);
+          // Deduplicar
+          let map = new Map();
+          guiadoData.ing.forEach(i=>{ map.set(i.n.toLowerCase(), i); });
+          guiadoData.ing = Array.from(map.values());
+        }
+      }else if(stage.key==='pasos'){
+        let pasos = parsePasosBloque(finalTranscript);
+        if(pasos.length>0){
+          guiadoData.pasosClasico = (guiadoData.pasosClasico||[]).concat(pasos);
+        }
+      }else{
+        Object.assign(guiadoData, parsed);
+      }
+      
+      // Rellenar en vivo
+      C({...v, ...guiadoData});
+      
+      // Limpiar para siguiente stage
+      finalTranscript = "";
+      let guiadoText = document.getElementById('qc-guiado-transcript');
+      if(guiadoText) guiadoText.textContent = '';
+      
+      if(isFin || guiadoStage>=stages.length-1){
+        finalizarGuiado();
+      }else{
+        guiadoStage++;
+        updateGuiadoUI();
+        if(status) status.textContent = stages[guiadoStage].prompt;
+      }
+    }
+    
+    function updateGuiadoUI(){
+      let title = document.getElementById('qc-guiado-title');
+      let prompt = document.getElementById('qc-guiado-prompt');
+      let progress = document.getElementById('qc-guiado-progress');
+      if(title) title.textContent = stages[guiadoStage].key.toUpperCase();
+      if(prompt) prompt.textContent = stages[guiadoStage].prompt;
+      if(progress) progress.textContent = (guiadoStage+1)+'/'+stages.length;
+    }
+    
+    function finalizarGuiado(){
+      isRecording = false;
+      if(recognition){ try{ recognition.stop(); }catch(e){} }
+      if(btn){ btn.textContent = '🎙️ Dictar receta'; btn.classList.remove('bg-[#111827]','text-white'); }
+      if(status) status.textContent = '✓ Completado: '+(guiadoData.nombre||'receta');
+      let overlay = document.getElementById('qc-guiado-overlay');
+      if(overlay) setTimeout(()=>{ overlay.style.display='none'; }, 2000);
+      // Asegurar guardado final
+      C({...v, ...guiadoData, id:v.id||Date.now()});
+      // Reset
+      guiadoMode = false;
+      guiadoStage = 0;
+    }
+    
+    recognition.onerror = function(e){
+      console.error(e);
+      if(status) status.textContent = 'Error: '+e.error;
+      isRecording = false;
+      if(btn){ btn.textContent = '🎙️ Dictar receta'; btn.classList.remove('bg-[#111827]','text-white'); }
+    };
+    
+    recognition.onend = function(){
+      if(guiadoMode && isRecording){
+        // Si sigue en modo guiado y se cortó, reiniciar
+        try{ recognition.start(); }catch(e){ isRecording=false; }
+        return;
+      }
+      // Modo libre fallback
+      if(!guiadoMode){
+        isRecording = false;
+        if(btn){ btn.textContent = '🎙️ Dictar receta'; btn.classList.remove('bg-[#111827]','text-white'); }
+        if(finalTranscript.trim().length>10){
+          if(status) status.textContent = 'Procesando...';
+          try{
+            const parsed = parseDictadoLibre(finalTranscript);
+            C({...v, ...parsed, id:v.id||Date.now()});
+            if(status) status.textContent = '✓ Rellenado: '+(parsed.nombre||'');
+            setTimeout(()=>{ if(status) status.textContent=''; }, 4000);
+          }catch(err){
+            console.error(err);
+            if(status) status.textContent = 'No pude parsear: '+finalTranscript.slice(0,80);
+          }
+        }
+      }
+    };
+    
+    // Botones de control guiado
+    let nextBtn = document.getElementById('qc-guiado-next');
+    if(nextBtn){
+      nextBtn.onclick = ()=>{ procesarStageActual(); };
+    }
+    let skipBtn = document.getElementById('qc-guiado-skip');
+    if(skipBtn){
+      skipBtn.onclick = ()=>{ 
+        finalTranscript=""; 
+        guiadoStage++; 
+        if(guiadoStage>=stages.length) finalizarGuiado(); else updateGuiadoUI(); 
+      };
+    }
+    let finishBtn = document.getElementById('qc-guiado-finish');
+    if(finishBtn){
+      finishBtn.onclick = ()=>{ procesarStageActual(true); };
+    }
+    
     recognition.start();
   };
 })();
 </script>
+
+
+<div id="qc-guiado-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:99999;flex-direction:column;padding:20px;gap:12px;">
+  <div style="background:#fff;border-radius:16px;padding:16px;max-width:500px;width:100%;margin:0 auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div style="font-weight:900;font-size:14px;">MODO GUIADO <span id="qc-guiado-progress" style="opacity:0.5;">1/5</span></div>
+      <div id="qc-guiado-title" style="font-weight:900;background:#111827;color:#fff;padding:4px 10px;border-radius:999px;font-size:12px;">MOMENTO</div>
+    </div>
+    <div id="qc-guiado-prompt" style="font-weight:700;font-size:15px;line-height:1.3;background:#fef7ed;border:1px solid #e7dcc9;border-radius:12px;padding:12px;margin-bottom:12px;">Di el momento...</div>
+    <div id="qc-guiado-transcript" style="min-height:60px;background:#f9fafb;border:1px dashed #d1d5db;border-radius:12px;padding:10px;font-size:13px;opacity:0.8;"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button id="qc-guiado-next" style="flex:1;height:44px;background:#111827;color:#fff;border-radius:12px;font-weight:800;">Siguiente ➡️</button>
+      <button id="qc-guiado-skip" style="height:44px;padding:0 16px;background:#fff;border:1px solid #000;border-radius:12px;font-weight:700;">Saltar</button>
+      <button id="qc-guiado-finish" style="height:44px;padding:0 16px;background:#ff7a1a;color:#fff;border-radius:12px;font-weight:800;">Fin ✓</button>
+    </div>
+    <div style="margin-top:8px;font-size:11px;opacity:0.6;text-align:center;">Di "siguiente" para avanzar, "fin" para terminar. Habla según las casillas de la app.</div>
+  </div>
+</div>
 </body></html>
