@@ -3268,19 +3268,32 @@ setInterval(()=>{ renderBanners(); },1000);
   let isRecording = false;
   let finalTranscript = "";
   
+  
   function parseDictado(text){
-    const t = text.toLowerCase();
+    const original = text.trim();
+    const t = original.toLowerCase();
     let out = {};
-    // Nombre: primera frase antes de ingredientes/pasos o primera línea
-    let nombre = text.split(/ingredientes|pasos|elaboraci[oó]n|preparaci[oó]n/i)[0].trim().split(/[.,\n]/)[0];
-    if(nombre.length>3 && nombre.length<80) out.nombre = nombre.charAt(0).toUpperCase()+nombre.slice(1);
     
-    // Grupo por keywords
+    // --- NOMBRE: primera frase antes de ingredientes/pasos, limpiar muletillas ---
+    let nombreRaw = original.split(/ingredientes(?: por persona)?|pasos?|elaboraci[oó]n|preparaci[oó]n/i)[0].trim();
+    // Quitar "receta de", "vamos a hacer", etc
+    nombreRaw = nombreRaw.replace(/^(receta de|vamos a hacer|quiero hacer|haz|crea)\s+/i, '').trim();
+    let primeraFrase = nombreRaw.split(/[.,\n]/)[0].trim();
+    if(primeraFrase.length>2 && primeraFrase.length<80){
+      // Capitalizar
+      out.nombre = primeraFrase.charAt(0).toUpperCase()+primeraFrase.slice(1).toLowerCase();
+      // Si es muy largo, cortar a 4 palabras
+      if(out.nombre.split(' ').length>6){
+        out.nombre = out.nombre.split(' ').slice(0,5).join(' ');
+      }
+    }
+    
+    // --- GRUPO ---
     const grupos = {
-      carne: ["pollo","ternera","cerdo","cordero","chuletilla","chuleta","lomo","carne","alb[óo]ndiga","hamburguesa"],
+      carne: ["pollo","ternera","cerdo","cordero","chuletilla","chuleta","lomo","carne","alb[óo]ndiga","hamburguesa","salchicha","perrito"],
       pescado: ["pescado","merluza","salm[oó]n","at[úu]n","bacalao","gamba","mejill[oó]n"],
       legumbre: ["lenteja","garbanzo","alubia","legumbre","jud[íi]a"],
-      verdura: ["verdura","calabac[ií]n","br[oó]coli","espinaca","ensalada","pimiento","cebolla","zanahoria"],
+      verdura: ["verdura","calabac[ií]n","br[oó]coli","espinaca","ensalada","pimiento","cebolla","zanahoria","ketchup","mostaza","pan"],
       huevo: ["huevo","tortilla"],
       pasta: ["pasta","macarr[oó]n","espagueti","fideo"],
       arroz: ["arroz"],
@@ -3289,81 +3302,161 @@ setInterval(()=>{ renderBanners(); },1000);
     for(let [g, kws] of Object.entries(grupos)){
       if(kws.some(k=> new RegExp(k).test(t))){ out.grupo = g; break; }
     }
+    if(/perrito|pan de perrito|hot dog/.test(t)) out.grupo = "carne";
     
-    // Momento
+    // --- MOMENTO ---
     if(/desayuno/.test(t)) out.momento = "desayuno";
     else if(/postre/.test(t)) out.momento = "postre";
     else if(/cena/.test(t) && !/comida/.test(t)) out.momento = "cena";
     else if(/comida/.test(t) && !/cena/.test(t)) out.momento = "comida";
     else out.momento = "ambas";
     
-    // Tipo
+    // --- TIPO ---
     if(/acompa[ñn]amiento/.test(t)) out.tipo = "acompañamiento";
     else if(/principal/.test(t)) out.tipo = "principal";
     else out.tipo = "completo";
     
-    // Estrella / Comodin / Guardia
     if(/estrella/.test(t)) out.estrella = true;
     if(/comod[ií]n/.test(t)) out.comodin = true;
     if(/guardia/.test(t)) out.soloGuardia = true;
-    
-    // Temporada
     if(/verano/.test(t)) out.temporada = "verano";
     else if(/invierno/.test(t)) out.temporada = "invierno";
     else out.temporada = "todo_año";
     
-    // Ingredientes - buscar patrones número + unidad + de + nombre
+    // --- INGREDIENTES POR PERSONA - LÓGICA MEJORADA ---
     let ing = [];
-    // Regex mejorada para español
-    const ingRegex = /(\d+(?:[.,]\d+)?)\s*(g|gramos?|kg|kilos?|ml|mililitros?|l|litros?|cucharadas?|cucharaditas?|ud|unidades?|pizca|manojo|dientes?)\s*(?:de\s*)?([a-záéíóúñü\s]+?)(?=,|\.|\s+y\s+\d+|\s+con\s+\d+|\s+luego|\s+despu[eé]s|$)/gi;
-    let m;
     let seen = new Set();
-    while((m = ingRegex.exec(t)) !== null){
-      let cant = parseFloat(m[1].replace(',','.'));
-      let unidadRaw = (m[2]||'g').toLowerCase();
-      let nombreIng = m[3].trim().replace(/^(de\s+)?/, '').split(/\s+por\s+persona|\s+para\s+/)[0].trim();
+    
+    // Extraer bloque de ingredientes
+    let bloqueIng = "";
+    let matchIng = t.match(/ingredientes(?: por persona)?[:\s]+([\s\S]*?)(?:pasos?|elaboraci[oó]n|preparaci[oó]n|$)/i);
+    if(matchIng){
+      bloqueIng = matchIng[1];
+    }else{
+      // Si no dice ingredientes, intentar entre nombre y pasos
+      let partes = original.split(/pasos?|elaboraci[oó]n/i);
+      bloqueIng = partes[0].split(/ingredientes(?: por persona)?/i)[1] || "";
+      if(!bloqueIng) bloqueIng = original; // fallback
+    }
+    
+    // Normalizar bloque
+    bloqueIng = bloqueIng.replace(/\s+y\s+/g, ', ').replace(/\s+con\s+/g, ', ');
+    
+    // Función para normalizar unidad
+    function normUnidad(raw){
+      raw = (raw||'').toLowerCase();
+      if(/kg|kilo/.test(raw)) return {u:'g', mult:1000};
+      if(/cucharada/.test(raw)) return {u:'cda', mult:1};
+      if(/cucharadita/.test(raw)) return {u:'cdta', mult:1};
+      if(/ml|mililitro/.test(raw)) return {u:'ml', mult:1};
+      if(/l|litro/.test(raw)) return {u:'ml', mult:1000};
+      if(/ud|unidad/.test(raw)) return {u:'ud', mult:1};
+      if(/pan|perrito|salchicha/.test(raw)) return {u:'ud', mult:1};
+      if(/pizca/.test(raw)) return {u:'pizca', mult:1};
+      if(/diente/.test(raw)) return {u:'diente', mult:1};
+      return {u:'g', mult:1};
+    }
+    
+    // 1) Buscar con cantidad explícita: número + unidad + de + nombre
+    const ingRegexConCant = /(\d+(?:[.,]\d+)?|un|una|dos|tres|cuatro)\s*(g|gramos?|kg|kilos?|ml|mililitros?|l|litros?|cucharadas?|cucharaditas?|ud|unidades?|pan(?:es)?|salchichas?|pizca|dientes?)?\s*(?:de\s*)?([a-záéíóúñü\s]+?)(?=,|\.|\s+y\s+|\s+con\s+|\s+luego|$)/gi;
+    let mm;
+    while((mm = ingRegexConCant.exec(bloqueIng)) !== null){
+      let cantRaw = mm[1].toLowerCase();
+      let cant = 1;
+      if(cantRaw==='un' || cantRaw==='una') cant = 1;
+      else if(cantRaw==='dos') cant = 2;
+      else if(cantRaw==='tres') cant = 3;
+      else if(cantRaw==='cuatro') cant = 4;
+      else cant = parseFloat(cantRaw.replace(',','.'));
+      if(isNaN(cant)) cant = 1;
+      
+      let unidadRaw = mm[2]||'';
+      let nombreIng = mm[3].trim().replace(/^(de\s+|un\s+|una\s+)/,'').replace(/\s+por\s+persona.*$/,'').trim();
+      // Limpiar nombre
+      nombreIng = nombreIng.replace(/\s+/g,' ').trim();
       if(nombreIng.length<2 || nombreIng.length>40) continue;
+      if(/paso|calentar|fre[ií]r|juntar|poner/.test(nombreIng)) continue;
       if(seen.has(nombreIng)) continue;
       seen.add(nombreIng);
-      let u = 'g';
-      if(/kg|kilo/.test(unidadRaw)) { cant = cant*1000; u='g'; }
-      else if(/cucharada/.test(unidadRaw)) u='cda';
-      else if(/cucharadita/.test(unidadRaw)) u='cdta';
-      else if(/ml/.test(unidadRaw)) u='ml';
-      else if(/l|litro/.test(unidadRaw)) { cant = cant*1000; u='ml'; }
-      else if(/ud|unidad/.test(unidadRaw)) u='ud';
-      else if(/pizca/.test(unidadRaw)) { cant = cant||1; u='pizca'; }
-      else if(/diente/.test(unidadRaw)) u='diente';
-      else u='g';
-      ing.push({n:nombreIng, c:cant, u:u});
+      
+      let {u, mult} = normUnidad(unidadRaw);
+      // Si unidad es pan/salchicha, forzar ud
+      if(/pan|salchicha|perrito/.test(nombreIng) || /pan|salchicha/.test(unidadRaw)) u='ud';
+      
+      ing.push({n:nombreIng, c:cant*mult, u:u});
     }
-    // Si no encontró con regex, intenta split por comas
+    
+    // 2) Fallback: ingredientes sin cantidad, separados por comas
     if(ing.length===0){
-      const posibles = t.split(/ingredientes?:?/i)[1]?.split(/pasos?:?|elaboraci[oó]n|preparaci[oó]n/i)[0];
-      if(posibles){
-        posibles.split(/,|\n/).forEach(part=>{
-          part = part.trim();
-          if(part.length>2 && part.length<40 && !/\d/.test(part)){
-            // sin cantidad, asumir 1 ud
-            if(!seen.has(part)){ ing.push({n:part, c:1, u:'ud'}); seen.add(part); }
+      bloqueIng.split(/,|\n/).forEach(part=>{
+        part = part.trim().toLowerCase().replace(/^(un\s+|una\s+)/,'').trim();
+        if(part.length>2 && part.length<35 && !/\d/.test(part)){
+          if(!/paso|calentar|fre[ií]r|juntar/.test(part) && !seen.has(part)){
+            // Filtrar palabras vacías
+            if(!["ketchup","mostaza","pan","salchicha","perrito"].some(k=>part.includes(k)) || true){
+              // Permitir ketchup mostaza
+            }
+            ing.push({n:part, c:1, u:'ud'});
+            seen.add(part);
           }
-        });
-      }
+        }
+      });
     }
+    
+    // Caso especial perritos calientes sin cantidades detectadas
+    if(/perrito/.test(t) && ing.length===0){
+      if(t.includes('pan')) ing.push({n:'pan de perrito caliente', c:1, u:'ud'});
+      if(t.includes('salchicha')) ing.push({n:'salchicha', c:1, u:'ud'});
+      if(t.includes('ketchup')) ing.push({n:'ketchup', c:10, u:'g'});
+      if(t.includes('mostaza')) ing.push({n:'mostaza', c:10, u:'g'});
+    }else{
+      // Si menciona ketchup/mostaza sin cantidad, añadir
+      if(t.includes('ketchup') && !seen.has('ketchup')) ing.push({n:'ketchup', c:15, u:'g'});
+      if(t.includes('mostaza') && !seen.has('mostaza')) ing.push({n:'mostaza', c:15, u:'g'});
+    }
+    
     if(ing.length>0) out.ing = ing;
     
-    // Pasos
-    let pasosText = text.split(/pasos?:?|elaboraci[oó]n:?|preparaci[oó]n:?/i)[1] || "";
-    if(!pasosText) pasosText = text;
-    let pasos = pasosText.split(/\.|\n|luego|despu[eé]s|a continuaci[oó]n/).map(s=>s.trim()).filter(s=>s.length>10 && s.length<200);
-    if(pasos.length>0) out.pasosClasico = pasos.slice(0,8);
+    // --- PASOS - DIVISIÓN POR PASO UNO/DOS/TRES ---
+    let pasosTextRaw = original.split(/pasos?:?|elaboraci[oó]n:?|preparaci[oó]n:?/i)[1] || "";
+    if(!pasosTextRaw) pasosTextRaw = original; // si no dijo pasos, usar todo
+    
+    // Normalizar separadores de pasos
+    let pasosNorm = pasosTextRaw
+      .replace(/paso\s+uno|primer paso/gi, ' |PASO| ')
+      .replace(/paso\s+dos|segundo paso/gi, ' |PASO| ')
+      .replace(/paso\s+tres|tercer paso/gi, ' |PASO| ')
+      .replace(/paso\s+cuatro|cuarto paso/gi, ' |PASO| ')
+      .replace(/paso\s+\d+/gi, ' |PASO| ')
+      .replace(/\s+luego\s+|\s+despu[eé]s\s+|\s+a continuaci[oó]n\s+/gi, ' |PASO| ');
+    
+    let pasos = pasosNorm.split(/\|PASO\||\.|\n/).map(s=>s.trim()).filter(s=>{
+      return s.length>8 && s.length<250 && !/ingredientes por persona/.test(s.toLowerCase());
+    }).map(s=>{
+      // Capitalizar y limpiar
+      s = s.replace(/^,\s*/, '').trim();
+      return s.charAt(0).toUpperCase()+s.slice(1);
+    });
+    
+    // Si solo 1 paso pero contiene "y", intentar dividir por "y"
+    if(pasos.length===1 && pasos[0].includes(' y ')){
+      let sub = pasos[0].split(/\s+y\s+/).filter(s=>s.length>10);
+      if(sub.length>1) pasos = sub;
+    }
+    
+    if(pasos.length>0) out.pasosClasico = pasos.slice(0,10);
     
     // Tiempo
     let tiempoMatch = t.match(/(\d+)\s*min/);
     if(tiempoMatch) out.tiempoClasico = tiempoMatch[1]+"min";
+    else if(/perrito/.test(t)) out.tiempoClasico = "10min";
+    
+    // Kcal estimación simple
+    if(/perrito/.test(t)) { out.kcal=350; out.prot=15; out.grasa=20; out.hc=25; }
     
     return out;
   }
+
   
   window.qcStartDictado = function(v, C){
     const btn = document.getElementById('qc-dictate-btn');
