@@ -489,6 +489,9 @@ function PcMulti(numSemanas){
   }
   let turnos=turnosMultiLocal[0]||{}; try{if(!Object.keys(turnos).length) turnos=JSON.parse(localStorage.getItem('qc-turnos-semana')||'{}');}catch(e){}
   let diasConGuardia=new Set(); Object.entries(turnos).forEach(([idx,turno])=>{ if(turno==='Guardia') diasConGuardia.add(parseInt(idx)); });
+  // FIX LUNES: siempre desde hoy
+  let now=new Date(); let jsDay=now.getDay(); let monIdx=jsDay===0?6:jsDay-1; let hour=now.getHours(); let isAfternoon=hour>=14; let startDay=monIdx + (isAfternoon?1:0); if(startDay>=7) startDay=0; console.log('FIX LUNES startDay',startDay);
+
   let basePool=t.filter((M)=>M.grupo!=="guia"&&(M.temporada==="todo_año"||M.temporada===au));
   let filteredByHistory=basePool.filter((M)=>{
     if(M.comodin) return true;
@@ -512,6 +515,7 @@ function PcMulti(numSemanas){
     let I={pescado:s.pescado,carne:s.carne,legumbre:s.legumbre,verdura:s.verdura,huevo:s.huevo,pastaArroz:s.pastaArroz};
     let turnosSemActual = (turnosMultiLocal[sem] || turnosMultiLocal[0] || {});
     let baseDias=w && w.length? w : Array.from({length:7},(_,i)=>({dia:["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"][i],comidaId:null,cenaId:null,acompComidaId:null,acompCenaId:null,locked:false}));
+    if(sem===0 && startDay>0 && startDay<7){ baseDias = baseDias.map((d,i)=>{ if(i<startDay) return {...d, comidaId:null, cenaId:null, acompComidaId:null, acompCenaId:null, locked:true, vacio:true}; return d; }); }
     let oe=baseDias.map((M)=>{ if(M.locked && sem===0) return {...M}; return {...M,comidaId:null,cenaId:null,acompComidaId:null,acompCenaId:null,locked:false};});
     let usedIds=new Set();
     let usedNames=new Set();
