@@ -1317,9 +1317,16 @@ setInterval(()=>{ renderBanners(); },1000);
       const update=(nv)=>{
         window.qcLocalReceta[recipeId]=nv;
         num.textContent=nv;
+        // Releer receta actualizada de localStorage para que persista el cambio de cantidades
+        let latestRec = rec;
+        try{
+          const store=JSON.parse(localStorage.getItem('que-comemos-expert-v2')||localStorage.getItem('que-comemos-expert-v1')||'{}');
+          const found=(store.recetas||[]).find(r=>r.id===recipeId);
+          if(found) latestRec = found;
+        }catch{}
         const rows=[...ingList.querySelectorAll('div.flex.justify-between')];
         rows.forEach((row,i)=>{
-          const ing=rec.ing[i]; if(!ing) return;
+          const ing=latestRec.ing[i]; if(!ing) return;
           const qty=row.querySelectorAll('span')[1];
           if(qty) qty.textContent=(Math.round(ing.c*nv*10)/10)+' '+ing.u;
         });
